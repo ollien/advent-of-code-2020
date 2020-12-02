@@ -2,6 +2,7 @@
 #include <exception>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <regex>
 #include <string>
 #include <vector>
@@ -101,13 +102,10 @@ class Entry {
  * @return int The number ofm atching password
  */
 int getNumValidPasswords(const std::vector<std::string> &input, const std::function<bool(const Entry &)> &valid) {
-	int numCorrect = 0;
-	for (std::string rawEntry : input) {
+	return std::accumulate(input.begin(), input.end(), 0, [&](int total, std::string rawEntry) {
 		Entry entry = Entry::parse(rawEntry);
-		numCorrect += valid(entry);
-	}
-
-	return numCorrect;
+		return total + valid(entry);
+	});
 }
 
 int part1(const std::vector<std::string> &input) {
