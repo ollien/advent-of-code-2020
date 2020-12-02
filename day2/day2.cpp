@@ -134,7 +134,7 @@ int part2(const std::vector<std::string> &input) {
 
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
-		std::cerr << "./day1 <input_file>" << std::endl;
+		std::cerr << "./day2 <input_file>" << std::endl;
 		return 1;
 	}
 
