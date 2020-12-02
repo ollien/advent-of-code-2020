@@ -94,31 +94,40 @@ class Entry {
 	std::string password;
 };
 
-int part1(const std::vector<std::string> &input) {
+/**
+ * Get the number of valid passwords in the input
+ * @param input The input split into lines
+ * @param matches A function that checks whether or not the password matches the policy
+ * @return int The number ofm atching password
+ */
+int getNumValidPasswords(const std::vector<std::string> &input, const std::function<bool(const Entry &)> &valid) {
 	int numCorrect = 0;
 	for (std::string rawEntry : input) {
 		Entry entry = Entry::parse(rawEntry);
-		const Policy &policy = entry.getPolicy();
-		const std::string &password = entry.getPassword();
-		char letter = entry.getPolicy().getLetter();
-		int count = std::count_if(password.begin(), password.end(), [=](char c) { return c == letter; });
-		numCorrect += (count >= policy.getMin() && count <= policy.getMax());
+		numCorrect += valid(entry);
 	}
 
 	return numCorrect;
 }
 
+int part1(const std::vector<std::string> &input) {
+	return getNumValidPasswords(input, [](const Entry &entry) {
+		const Policy &policy = entry.getPolicy();
+		const std::string &password = entry.getPassword();
+		int count = std::count_if(password.begin(), password.end(), [&](char c) { return c == policy.getLetter(); });
+
+		return (count >= policy.getMin() && count <= policy.getMax());
+	});
+}
+
 int part2(const std::vector<std::string> &input) {
-	int numCorrect = 0;
-	for (std::string rawEntry : input) {
-		Entry entry = Entry::parse(rawEntry);
+	return getNumValidPasswords(input, [](const Entry &entry) {
 		const Policy &policy = entry.getPolicy();
 		const std::string &password = entry.getPassword();
 		char letter = entry.getPolicy().getLetter();
-		numCorrect += ((password.at(policy.getMin() - 1) == letter) ^ (password.at(policy.getMax() - 1) == letter));
-	}
 
-	return numCorrect;
+		return ((password.at(policy.getMin() - 1) == letter) ^ (password.at(policy.getMax() - 1) == letter));
+	});
 }
 
 int main(int argc, char *argv[]) {
