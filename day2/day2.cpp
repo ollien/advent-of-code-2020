@@ -1,3 +1,5 @@
+#include <folly/String.h>
+
 #include <algorithm>
 #include <exception>
 #include <fstream>
@@ -75,8 +77,10 @@ class Entry {
 	 */
 	static Entry parse(const std::string &input) {
 		int delimIndex = input.find(DELIM);
-		std::string rawPolicy = input.substr(0, delimIndex);
-		std::string password = input.substr(delimIndex + DELIM.length());
+		std::vector<std::string> components;
+		folly::split(DELIM, input, components);
+		std::string rawPolicy = components.at(0);
+		std::string password = components.at(1);
 		Policy policy = Policy::parse(rawPolicy);
 
 		return Entry(policy, password);
