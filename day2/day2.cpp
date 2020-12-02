@@ -82,11 +82,11 @@ class Entry {
 		return Entry(policy, password);
 	}
 
-	Policy const &getPolicy() const {
+	const Policy &getPolicy() const {
 		return this->policy;
 	}
 
-	std::string const &getPassword() const {
+	const std::string &getPassword() const {
 		return this->password;
 	}
 
