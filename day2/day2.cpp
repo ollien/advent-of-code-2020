@@ -13,7 +13,7 @@ const std::string DELIM = ": ";
  * Policy represents a password policy
  */
 class Policy {
-	public:
+ public:
 	Policy(int min, int max, char letter) : min(min), max(max), letter(letter) {
 	}
 
@@ -45,7 +45,7 @@ class Policy {
 		return this->letter;
 	}
 
-	private:
+ private:
 	int min;
 	int max;
 	char letter;
@@ -63,7 +63,7 @@ std::vector<std::string> read_input(const std::string &filename) {
 }
 
 class Entry {
-	public:
+ public:
 	Entry(Policy policy, std::string password) : policy(policy), password(password) {
 	}
 
@@ -89,7 +89,7 @@ class Entry {
 		return this->password;
 	}
 
-	private:
+ private:
 	Policy policy;
 	std::string password;
 };
