@@ -30,8 +30,7 @@ class Policy {
 			throw new std::invalid_argument("Invalid string");
 		}
 
-		// TODO Do I need this string constructor?
-		return Policy(std::stoi(matches[1]), std::stoi(matches[2]), std::string(matches[3]).at(0));
+		return Policy(std::stoi(matches[1]), std::stoi(matches[2]), matches.str(3).at(0));
 	}
 
 	int getMin() const {
