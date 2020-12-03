@@ -27,6 +27,7 @@ std::vector<std::string> read_input(const std::string &filename) {
 int findNumTrees(const std::vector<std::string> &input, int xDelta, int yDelta = 1) {
 	int xCursor = 0;
 	int numTrees = 0;
+	// I want to use an iterator here, but I don't have a way to cleanly make sure I don't blow through the end :(
 	for (int i = 0; i < input.size(); i += yDelta) {
 		const std::string &row = input.at(i);
 		numTrees += (row.at(xCursor) == TREE_CHAR);
@@ -58,7 +59,7 @@ long part2(const std::vector<std::string> &input) {
 
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
-		std::cerr << argv[0] << "<input_file>" << std::endl;
+		std::cerr << argv[0] << " <input_file>" << std::endl;
 		return 1;
 	}
 
