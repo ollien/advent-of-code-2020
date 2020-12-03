@@ -1,5 +1,7 @@
+#include <execution>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <vector>
 
 constexpr char TREE_CHAR = '#';
@@ -39,13 +41,20 @@ int part1(const std::vector<std::string> &input) {
 }
 
 long part2(const std::vector<std::string> &input) {
-	return 1L * findNumTrees(input, 1, 1) * findNumTrees(input, 3, 1) * findNumTrees(input, 5, 1) *
-		   findNumTrees(input, 7, 1) * findNumTrees(input, 1, 2);
+	// deltas in the x and y directions respectively
+	std::vector<std::pair<int, int>> deltas{std::pair<int, int>(1, 1), std::pair<int, int>(3, 1),
+											std::pair<int, int>(5, 1), std::pair<int, int>(7, 1),
+											std::pair<int, int>(1, 2)};
+
+	return std::reduce(std::execution::par, deltas.begin(), deltas.end(), 1L,
+					   [&](long total, std::pair<int, int> step_deltas) {
+						   return total * findNumTrees(input, step_deltas.first, step_deltas.second);
+					   });
 }
 
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
-		std::cerr << "./" << argv[0] << "<input_file>" << std::endl;
+		std::cerr << argv[0] << "<input_file>" << std::endl;
 		return 1;
 	}
 
