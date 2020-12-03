@@ -42,14 +42,18 @@ int part1(const std::vector<std::string> &input) {
 
 long part2(const std::vector<std::string> &input) {
 	// deltas in the x and y directions respectively
-	std::vector<std::pair<int, int>> deltas{std::pair<int, int>(1, 1), std::pair<int, int>(3, 1),
-											std::pair<int, int>(5, 1), std::pair<int, int>(7, 1),
-											std::pair<int, int>(1, 2)};
+	std::vector<std::pair<int, int>> deltas{
+		std::pair<int, int>(1, 1),
+		std::pair<int, int>(3, 1),
+		std::pair<int, int>(5, 1),
+		std::pair<int, int>(7, 1),
+		std::pair<int, int>(1, 2),
+	};
 
-	return std::reduce(std::execution::par, deltas.begin(), deltas.end(), 1L,
-					   [&](long total, std::pair<int, int> step_deltas) {
-						   return total * findNumTrees(input, step_deltas.first, step_deltas.second);
-					   });
+	return std::reduce(
+		std::execution::par, deltas.begin(), deltas.end(), 1L, [&](long total, std::pair<int, int> step_deltas) {
+			return total * findNumTrees(input, step_deltas.first, step_deltas.second);
+		});
 }
 
 int main(int argc, char *argv[]) {
