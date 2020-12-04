@@ -11,10 +11,31 @@
 #include <streambuf>
 #include <vector>
 
+// Forward declarations of validators are needed for FIELD_VALIDATORS
+// Technically this might go in a .hpp file but eh, this is a single file solution...
+bool isValidBirthYear(int year);
+bool isValidIssueYear(int year);
+bool isValidExpirationYear(int year);
+bool isValidHeight(const std::string &height);
+bool isValidHairColor(const std::string &height);
+bool isValidEyeColor(const std::string &height);
+bool isValidPassportNumber(const std::string &height);
+
 // cid is not required
-const std::set<std::string> requiredFields{"byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid"};
-const std::set<std::string> validEyeColors{"amb", "blu", "brn", "gry", "grn", "hzl", "oth"};
+const std::set<std::string> REQUIRED_FIELDS{"byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid"};
+const std::set<std::string> VALID_EYE_COLORS{"amb", "blu", "brn", "gry", "grn", "hzl", "oth"};
 const std::string PASSPORT_DELIM = "\n\n";
+const std::string PASSPORT_FIELD_DELIM = ":";
+const auto FIELD_VALIDATORS = std::map<std::string, std::function<bool(const std::string &)>>{
+	{"byr", [](const std::string &value) { return isValidBirthYear(std::stoi(value)); }},
+	{"iyr", [](const std::string &value) { return isValidIssueYear(std::stoi(value)); }},
+	{"eyr", [](const std::string &value) { return isValidExpirationYear(std::stoi(value)); }},
+	{"hgt", isValidHeight},
+	{"hcl", isValidHairColor},
+	{"ecl", isValidEyeColor},
+	{"pid", isValidPassportNumber},
+	{"cid", [](const std::string &value) { return true; }},
+};
 
 std::string read_input(const std::string &filename) {
 	std::vector<std::string> input;
@@ -38,8 +59,8 @@ bool hasRequiredFields(const std::map<std::string, std::string> &passport) {
 
 	std::set<std::string> missingFields;
 	std::set_difference(
-		requiredFields.begin(),
-		requiredFields.end(),
+		REQUIRED_FIELDS.begin(),
+		REQUIRED_FIELDS.end(),
 		fields.begin(),
 		fields.end(),
 		std::inserter(missingFields, missingFields.end()));
@@ -76,10 +97,11 @@ std::vector<std::map<std::string, std::string>> makePassportMaps(const std::stri
 		std::vector<std::string> entries;
 		folly::split(" ", passport, entries);
 
+		// Make a map of all of the entries in this pasport
 		std::map<std::string, std::string> passportMap;
 		for (const std::string &entry : entries) {
 			std::vector<std::string> parts;
-			folly::split(":", entry, parts);
+			folly::split(PASSPORT_FIELD_DELIM, entry, parts);
 			passportMap.insert(std::pair<std::string, std::string>(parts.at(0), parts.at(1)));
 		}
 
@@ -120,7 +142,7 @@ bool isValidHairColor(const std::string &color) {
 }
 
 bool isValidEyeColor(const std::string &color) {
-	return validEyeColors.find(color) != validEyeColors.end();
+	return VALID_EYE_COLORS.find(color) != VALID_EYE_COLORS.end();
 }
 
 bool isValidPassportNumber(const std::string &num) {
@@ -128,27 +150,13 @@ bool isValidPassportNumber(const std::string &num) {
 	return std::regex_match(num, expression);
 }
 
-bool isFieldValid(const std::string &fieldName, const std::string value) {
-	// TODO: This could maybe be changed to a map of lambdas?
-	if (fieldName == "byr") {
-		return isValidBirthYear(std::stoi(value));
-	} else if (fieldName == "iyr") {
-		return isValidIssueYear(std::stoi(value));
-	} else if (fieldName == "eyr") {
-		return isValidExpirationYear(std::stoi(value));
-	} else if (fieldName == "hgt") {
-		return isValidHeight(value);
-	} else if (fieldName == "hcl") {
-		return isValidHairColor(value);
-	} else if (fieldName == "ecl") {
-		return isValidEyeColor(value);
-	} else if (fieldName == "pid") {
-		return isValidPassportNumber(value);
-	} else if (fieldName == "cid") {
-		return true;
+bool isFieldValid(const std::string &fieldName, const std::string &value) {
+	auto validator = FIELD_VALIDATORS.find(fieldName);
+	if (validator == FIELD_VALIDATORS.end()) {
+		throw new std::invalid_argument("Bad field name");
 	}
 
-	throw new std::invalid_argument("Bad field name");
+	return validator->second(value);
 }
 
 int part1(const std::vector<std::map<std::string, std::string>> &passports) {
