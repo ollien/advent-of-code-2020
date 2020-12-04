@@ -10,6 +10,6 @@ all: $(BIN_NAME)
 clean:
 	rm -f $(BIN_NAME)
 
-$(BIN_NAME):
+$(BIN_NAME): day3.cpp
 	$(CC) $(CCFLAGS) $(LDFLAGS) day3.cpp
 
