@@ -36,17 +36,12 @@ std::vector<std::string> read_input(const std::string &filename) {
 int getPosFromSpec(std::string_view spec, char bottomHalfChar, char topHalfChar, int initMax) {
 	int max = initMax;
 	int min = 0;
-	int stringCursor = 0;
 	for (char candidate : spec) {
-		// std::cout << min << " " << max << std::endl;
-		// std::cout << candidate << std::endl;
 		if (candidate == topHalfChar) {
 			max = (max + min) / 2;
 		} else if (candidate == bottomHalfChar) {
 			min += (max - min) / 2 + 1;
 		}
-
-		stringCursor++;
 	}
 
 	return min;
