@@ -69,6 +69,21 @@ int parseSeatID(std::string_view view) {
 	return rowId * (MAX_COL + 1) + colId;
 }
 
+template <typename Iter>
+typename std::iterator_traits<Iter>::value_type findMissingNumber(Iter begin, Iter end) {
+	auto lastNumber = *begin;
+	for (Iter it = std::next(begin); it != end; it++) {
+		if (*it != lastNumber + 1) {
+			return lastNumber + 1;
+		}
+
+		lastNumber = *it;
+	}
+
+	throw std::invalid_argument("No missing number in iterator");
+}
+
+
 int part1(const std::vector<std::string> &input) {
 	return std::accumulate(input.cbegin(), input.cend(), 0, [](int max, const std::string &row) {
 		int seatId = parseSeatID(row);
@@ -83,15 +98,7 @@ int part2(const std::vector<std::string> &input) {
 	});
 	std::sort(ids.begin(), ids.end());
 
-	int lastId = ids.at(0);
-	for (auto it = std::next(ids.begin()); it != ids.end(); it++) {
-		if (*it != lastId + 1) {
-			return lastId + 1;
-		}
-		lastId = *it;
-	}
-
-	throw std::invalid_argument("No solution in given input");
+	return findMissingNumber(ids.begin(), ids.end());
 }
 
 int main(int argc, char *argv[]) {
