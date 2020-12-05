@@ -25,11 +25,19 @@ std::vector<std::string> read_input(const std::string &filename) {
 	return input;
 }
 
-int getPosFromSpec(std::string_view view, char bottomHalfChar, char topHalfChar, int initMax) {
+/**
+ * Get the position of a row or a column from a string spec.
+ * @param spec The specification of the row or the column for the problem
+ * @param bottomHalfChar The character that specifies taking the bottom half of the row/column
+ * @param topHalfChar The character that specifies using the top half of the row/column
+ * @param initMax The initial maximum value for the unit being checked (row or column).
+ * @return int The row/column position from the spec.
+ */
+int getPosFromSpec(std::string_view spec, char bottomHalfChar, char topHalfChar, int initMax) {
 	int max = initMax;
 	int min = 0;
 	int stringCursor = 0;
-	for (char candidate : view) {
+	for (char candidate : spec) {
 		// std::cout << min << " " << max << std::endl;
 		// std::cout << candidate << std::endl;
 		if (candidate == topHalfChar) {
@@ -44,9 +52,14 @@ int getPosFromSpec(std::string_view view, char bottomHalfChar, char topHalfChar,
 	return min;
 }
 
-int getColumnSplitPoint(std::string_view view) {
-	int rightPosition = view.find(RIGHT_CHAR);
-	int leftPosition = view.find(LEFT_CHAR);
+/**
+ * Get the point at which the specification splits between row and column (i.e. from F/B and L/R)
+ * @param seatSpec The specification for the seat
+ * @return int The index at which rows stop being specified
+ */
+int getColumnSplitPoint(std::string_view seatSpec) {
+	int rightPosition = seatSpec.find(RIGHT_CHAR);
+	int leftPosition = seatSpec.find(LEFT_CHAR);
 	if (rightPosition == std::string_view::npos) {
 		return leftPosition;
 	} else if (leftPosition == std::string_view::npos) {
@@ -56,19 +69,30 @@ int getColumnSplitPoint(std::string_view view) {
 	return std::min(rightPosition, leftPosition);
 }
 
-int parseSeatID(std::string_view view) {
-	int columnSplitPoint = getColumnSplitPoint(view);
-	std::string_view rowSpec = view.substr(0, columnSplitPoint);
-	std::string_view colSpec = view.substr(columnSplitPoint);
-	// std::cout << rowSpec << " " << colSpec << std::endl;
+/**
+ * Get the seat ID from the seat specification
+ * @param seatSpec The specification for the seat specification
+ * @return int The seatID given by seatSpec
+ */
+int parseSeatID(std::string_view seatSpec) {
+	int columnSplitPoint = getColumnSplitPoint(seatSpec);
+	std::string_view rowSpec = seatSpec.substr(0, columnSplitPoint);
+	std::string_view colSpec = seatSpec.substr(columnSplitPoint);
 
 	int rowId = getPosFromSpec(rowSpec, BACK_CHAR, FRONT_CHAR, MAX_ROW);
 	int colId = getPosFromSpec(colSpec, RIGHT_CHAR, LEFT_CHAR, MAX_COL);
 
-	// std::cout << rowId << " " << colId << std::endl;
 	return rowId * (MAX_COL + 1) + colId;
 }
 
+/**
+ * Find the missing number in an iterator
+ * @tparam Iter The iterator to check in
+ * @param begin The start of the iterator
+ * @param end The end of the iterator
+ * @return std::iterator_traits<Iter>::value_type The missing number in the iterator
+ * @throws invalid_argument if there is no missing number in the iterator
+ */
 template <typename Iter>
 typename std::iterator_traits<Iter>::value_type findMissingNumber(Iter begin, Iter end) {
 	auto lastNumber = *begin;
@@ -82,7 +106,6 @@ typename std::iterator_traits<Iter>::value_type findMissingNumber(Iter begin, It
 
 	throw std::invalid_argument("No missing number in iterator");
 }
-
 
 int part1(const std::vector<std::string> &input) {
 	return std::accumulate(input.cbegin(), input.cend(), 0, [](int max, const std::string &row) {
