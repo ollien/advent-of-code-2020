@@ -73,11 +73,13 @@ int part2(const std::vector<std::vector<std::string>> &groups) {
 		// Copy all possible answers so we can produce a set intersection with them
 		std::set<char> commonAnswers(allPossibleAnswers);
 		for (const std::string &rawPersonAnswers : group) {
+			// Get a set of this person's answers
 			std::set<char> personAnswers;
 			std::for_each(rawPersonAnswers.cbegin(), rawPersonAnswers.cend(), [&personAnswers](char answer) {
 				personAnswers.insert(answer);
 			});
 
+			// Intersect it with all of the common answers
 			std::set<char> intersection;
 			std::set_intersection(
 				personAnswers.begin(),
