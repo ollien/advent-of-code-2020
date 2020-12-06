@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-std::vector<std::string> read_input(const std::string &filename) {
+std::vector<std::string> readInput(const std::string &filename) {
 	std::vector<std::string> input;
 	std::string line;
 	std::ifstream file(filename);
@@ -20,58 +20,76 @@ std::vector<std::string> read_input(const std::string &filename) {
 	return input;
 }
 
-int part1(const std::vector<std::string> &input) {
-	int total = 0;
-	std::set<char> groups;
-	for (std::string_view line : input) {
+/**
+ * Separate the inputs into groups - each inner vector is a list of lines within that group (separated by newlines)
+ * @param input The puzzle input
+ * @return std::vector<std::vector<std::string>> The inputs grouped by newlines
+ */
+std::vector<std::vector<std::string>> getGroups(const std::vector<std::string> &input) {
+	std::vector<std::vector<std::string>> groups;
+	std::vector<std::string> currentGroup;
+	for (std::string line : input) {
 		if (line.length() == 0) {
-			total += groups.size();
-			groups.clear();
+			groups.push_back(currentGroup);
+			currentGroup.clear();
 			continue;
 		}
 
-		for (char item : line) {
-			groups.insert(item);
+		currentGroup.push_back(line);
+	}
+
+	groups.push_back(currentGroup);
+	return groups;
+}
+
+int part1(const std::vector<std::vector<std::string>> &groups) {
+	int total = 0;
+	for (const std::vector<std::string> &group : groups) {
+		std::set<char> groupAnswers;
+		for (const std::string &personAnswers : group) {
+			std::for_each(personAnswers.cbegin(), personAnswers.cend(), [&groupAnswers](char answer) {
+				groupAnswers.insert(answer);
+			});
 		}
+		total += groupAnswers.size();
 	}
 
 	return total;
 }
 
-int part2(const std::vector<std::string> &input) {
+int part2(const std::vector<std::vector<std::string>> &groups) {
 	int total = 0;
-	std::set<char> commonAnswers;
+	// Make a set of all possible answers, from a to z.
+	std::set<char> allPossibleAnswers;
 	for (char i = 'a'; i <= 'z'; i++) {
-		commonAnswers.insert(i);
+		allPossibleAnswers.insert(i);
 	}
 
-	for (std::string_view line : input) {
-		if (line.length() == 0) {
-			total += commonAnswers.size();
-			commonAnswers.clear();
-			for (char i = 'a'; i <= 'z'; i++) {
-				commonAnswers.insert(i);
-			}
+	for (const std::vector<std::string> &group : groups) {
+		// Not technically needed for the problem but it would be incorrect if this happened :) total would add 26.
+		if (group.size() == 0) {
 			continue;
 		}
+		// Copy all possible answers so we can produce a set intersection with them
+		std::set<char> commonAnswers(allPossibleAnswers);
+		for (const std::string &rawPersonAnswers : group) {
+			std::set<char> personAnswers;
+			std::for_each(rawPersonAnswers.cbegin(), rawPersonAnswers.cend(), [&personAnswers](char answer) {
+				personAnswers.insert(answer);
+			});
 
-		std::set<char> personAnswers;
-		for (char item : line) {
-			personAnswers.insert(item);
+			std::set<char> intersection;
+			std::set_intersection(
+				personAnswers.begin(),
+				personAnswers.end(),
+				commonAnswers.begin(),
+				commonAnswers.end(),
+				std::inserter(intersection, intersection.begin()));
+
+			commonAnswers = std::move(intersection);
 		}
 
-		std::set<char> intersection;
-		std::set_intersection(
-			personAnswers.begin(),
-			personAnswers.end(),
-			commonAnswers.begin(),
-			commonAnswers.end(),
-			std::inserter(intersection, intersection.begin()));
-
-		std::string out;
-		folly::join(" ", commonAnswers.begin(), commonAnswers.end(), out);
-		std::cout << out << std::endl;
-		commonAnswers = std::move(intersection);
+		total += commonAnswers.size();
 	}
 
 	return total;
@@ -83,8 +101,8 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	auto input = read_input(argv[1]);
-	input.push_back("");
-	std::cout << part1(input) << std::endl;
-	std::cout << part2(input) << std::endl;
+	auto input = readInput(argv[1]);
+	auto groups = getGroups(input);
+	std::cout << part1(groups) << std::endl;
+	std::cout << part2(groups) << std::endl;
 }
