@@ -10,7 +10,7 @@ constexpr int TARGET_NUM = 2020;
  * @param filename The filename to read from
  * @return std::set<int> A set of the numbers in the input
  */
-std::set<int> read_input(const std::string &filename) {
+std::set<int> readInput(const std::string &filename) {
 	std::set<int> input;
 	std::string line;
 	std::ifstream file(filename);
@@ -53,7 +53,7 @@ int main(int argc, const char *argv[]) {
 		return 1;
 	}
 
-	std::set<int> inputs = read_input(argv[1]);
+	std::set<int> inputs = readInput(argv[1]);
 	std::cout << part1(inputs) << std::endl;
 	std::cout << part2(inputs) << std::endl;
 }

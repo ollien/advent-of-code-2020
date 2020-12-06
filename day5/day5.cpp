@@ -14,7 +14,7 @@ constexpr char BACK_CHAR = 'B';
 constexpr char RIGHT_CHAR = 'R';
 constexpr char LEFT_CHAR = 'L';
 
-std::vector<std::string> read_input(const std::string &filename) {
+std::vector<std::string> readInput(const std::string &filename) {
 	std::vector<std::string> input;
 	std::string line;
 	std::ifstream file(filename);
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	auto input = read_input(argv[1]);
+	auto input = readInput(argv[1]);
 	std::cout << part1(input) << std::endl;
 	std::cout << part2(input) << std::endl;
 }

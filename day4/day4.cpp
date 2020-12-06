@@ -37,7 +37,7 @@ const auto FIELD_VALIDATORS = std::map<std::string, std::function<bool(const std
 	{"cid", [](const std::string &value) { return true; }},
 };
 
-std::string read_input(const std::string &filename) {
+std::string readInput(const std::string &filename) {
 	std::vector<std::string> input;
 	std::string line;
 	std::ifstream file(filename);
@@ -195,7 +195,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	std::string input = read_input(argv[1]);
+	std::string input = readInput(argv[1]);
 	auto passports = makePassportMaps(input);
 	std::cout << part1(passports) << std::endl;
 	std::cout << part2(passports) << std::endl;
