@@ -155,6 +155,14 @@ int part2(const std::vector<std::string> &input) {
 	return count;
 }
 
+int recursivePart2(const BagMap &bagMap, const std::string &toVisit = DESIRED_BAG) {
+	std::vector<ContainedBag> childBags = bagMap.at(toVisit);
+
+	return std::accumulate(childBags.cbegin(), childBags.cend(), 0, [&](int total, const ContainedBag &bag) {
+		return total + bag.getQuantity() + bag.getQuantity() * recursivePart2(bagMap, bag.getColor());
+	});
+}
+
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
 		std::cerr << argv[0] << " <input_file>" << std::endl;
@@ -164,4 +172,5 @@ int main(int argc, char *argv[]) {
 	auto input = readInput(argv[1]);
 	std::cout << part1(input) << std::endl;
 	std::cout << part2(input) << std::endl;
+	std::cout << recursivePart2(makeBagMap(input)) << std::endl;
 }
