@@ -134,8 +134,7 @@ bool doesBagContain(const BagMap &bagMap, const std::string &originBag, const st
 	return false;
 }
 
-int part1(const std::vector<std::string> &input) {
-	auto bagMap = makeBagMap(input);
+int part1(const BagMap &bagMap) {
 	int count = 0;
 	for (auto bagEntry : bagMap) {
 		const std::string &bagName = bagEntry.first;
@@ -149,8 +148,7 @@ int part1(const std::vector<std::string> &input) {
 	return count;
 }
 
-int part2(const std::vector<std::string> &input) {
-	auto bagMap = makeBagMap(input);
+int part2(const BagMap &bagMap) {
 	int count = 0;
 
 	std::stack<std::string> toVisit;
@@ -187,7 +185,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	auto input = readInput(argv[1]);
-	std::cout << part1(input) << std::endl;
-	std::cout << part2(input) << std::endl;
-	std::cout << recursivePart2(makeBagMap(input)) << std::endl;
+
+	auto bagMap = makeBagMap(input);
+	std::cout << part1(bagMap) << std::endl;
+	std::cout << part2(bagMap) << std::endl;
+	std::cout << recursivePart2(bagMap) << std::endl;
 }
