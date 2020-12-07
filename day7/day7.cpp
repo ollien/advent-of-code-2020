@@ -132,6 +132,29 @@ int part1(const std::vector<std::string> &input) {
 	return count;
 }
 
+int part2(const std::vector<std::string> &input) {
+	auto bagMap = makeBagMap(input);
+	int count = 0;
+
+	std::stack<std::string> toVisit;
+	toVisit.emplace(DESIRED_BAG);
+	while (!toVisit.empty()) {
+		std::string visiting = toVisit.top();
+		toVisit.pop();
+
+		for (ContainedBag bag : bagMap.at(visiting)) {
+			count += bag.getQuantity();
+			// Enqueue this bagQuantity times. This won't account for cycles (I hope there aren't any), and is slow, but
+			// will work.
+			for (int i = 0; i < bag.getQuantity(); i++) {
+				toVisit.emplace(std::string(bag.getColor()));
+			}
+		}
+	}
+
+	return count;
+}
+
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
 		std::cerr << argv[0] << " <input_file>" << std::endl;
@@ -140,5 +163,5 @@ int main(int argc, char *argv[]) {
 
 	auto input = readInput(argv[1]);
 	std::cout << part1(input) << std::endl;
-	// std::cout << part2(groups) << std::endl;
+	std::cout << part2(input) << std::endl;
 }
