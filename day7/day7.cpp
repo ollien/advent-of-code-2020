@@ -17,6 +17,9 @@ auto constexpr NO_OTHER_BAGS = "no other bags";
 auto constexpr BAG_DELIM = ", ";
 auto constexpr DESIRED_BAG = "shiny gold";
 
+/**
+ * Represents a bag this is contained in another bag (i.e. a bag and its quantity)
+ */
 class ContainedBag {
  public:
 	ContainedBag(std::string color, int quantity) : color(color), quantity(quantity) {
@@ -53,6 +56,11 @@ std::vector<std::string> readInput(const std::string &filename) {
 	return input;
 }
 
+/**
+ * Parse the input line into a bag and its contents
+ * @param line A line of input
+ * @return std::pair<std::string, std::vector<ContainedBag>> A bag, and the bags it contains
+ */
 std::pair<std::string, std::vector<ContainedBag>> parseInputLine(const std::string &line) {
 	std::regex lineExpression(LINE_PATTERN);
 	std::smatch lineMatches;
@@ -85,6 +93,11 @@ std::pair<std::string, std::vector<ContainedBag>> parseInputLine(const std::stri
 	return std::pair<std::string, std::vector<ContainedBag>>(bagName, containedBags);
 }
 
+/**
+ * Make a map of all of the contained bags
+ * @param input The input for the puzzle
+ * @return BagMap A map of bags to their children
+ */
 BagMap makeBagMap(const std::vector<std::string> &input) {
 	std::map<std::string, std::vector<ContainedBag>> bags;
 	std::transform(input.cbegin(), input.cend(), std::inserter(bags, bags.begin()), [](const std::string &line) {
@@ -94,16 +107,20 @@ BagMap makeBagMap(const std::vector<std::string> &input) {
 	return bags;
 }
 
-bool doesBagContain(BagMap bagMap, const std::string &originBag, const std::string &desiredBag) {
+/**
+ * Check if one bag contains another
+ * @param bagMap A map of bags to their children
+ * @param originBag The bag to check if it contains desiredBag
+ * @param desiredBag The bag to search for
+ * @return true If the bag is found
+ * @return false False otherwise
+ */
+bool doesBagContain(const BagMap &bagMap, const std::string &originBag, const std::string &desiredBag) {
 	std::stack<std::string> toVisit;
-	std::set<std::string> visited;
 	toVisit.emplace(originBag);
 	while (!toVisit.empty()) {
 		std::string visiting = toVisit.top();
 		toVisit.pop();
-		if (visited.find(visiting) != visited.end()) {
-			continue;
-		}
 
 		if (visiting == desiredBag) {
 			return true;
@@ -144,8 +161,8 @@ int part2(const std::vector<std::string> &input) {
 
 		for (ContainedBag bag : bagMap.at(visiting)) {
 			count += bag.getQuantity();
-			// Enqueue this bagQuantity times. This won't account for cycles (I hope there aren't any), and is slow, but
-			// will work.
+			// Enqueue this bagQuantity times. This s slow (exponential blowup), but will work.
+			// Getting rid of this would require making a map of iterating up the whole tree of parents, which isn't fun
 			for (int i = 0; i < bag.getQuantity(); i++) {
 				toVisit.emplace(std::string(bag.getColor()));
 			}
