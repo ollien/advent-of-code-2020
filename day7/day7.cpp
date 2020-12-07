@@ -175,7 +175,7 @@ int part2(const std::vector<std::string> &input) {
 int recursivePart2(const BagMap &bagMap, const std::string &toVisit = DESIRED_BAG) {
 	std::vector<ContainedBag> childBags = bagMap.at(toVisit);
 
-	return std::accumulate(childBags.cbegin(), childBags.cend(), 0, [&](int total, const ContainedBag &bag) {
+	return std::accumulate(childBags.cbegin(), childBags.cend(), 0, [&bagMap](int total, const ContainedBag &bag) {
 		return total + bag.getQuantity() + bag.getQuantity() * recursivePart2(bagMap, bag.getColor());
 	});
 }
