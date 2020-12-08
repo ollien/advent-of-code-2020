@@ -15,6 +15,9 @@ constexpr auto ACCUMULATOR_INSTRUCTION = "acc";
 constexpr auto JUMP_INSTRUCTION = "jmp";
 constexpr auto NOP_INSTRUCTION = "nop";
 
+/**
+ * Represents a single line of the program
+ */
 class ProgramLine {
  public:
 	ProgramLine(std::string instruction, int value) : instruction(instruction), value(value) {
@@ -22,6 +25,10 @@ class ProgramLine {
 
 	const std::string &getInstruction() const {
 		return this->instruction;
+	}
+
+	void setInstruction(std::string instruction) {
+		this->instruction = instruction;
 	}
 
 	int getValue() const {
@@ -44,6 +51,11 @@ std::vector<std::string> readInput(const std::string &filename) {
 	return input;
 }
 
+/**
+ * Convert the input to ProgramLines
+ * @param input The puzzle input
+ * @return std::vector<ProgramLine> The input as ProgramLines
+ */
 std::vector<ProgramLine> parseProgramLines(const std::vector<std::string> &input) {
 	std::vector<ProgramLine> lines;
 	lines.reserve(input.size());
@@ -60,14 +72,20 @@ std::vector<ProgramLine> parseProgramLines(const std::vector<std::string> &input
 	return lines;
 }
 
-int part1(const std::vector<ProgramLine> &lines) {
+/**
+ * Run the given program, checking if it terminates normally
+ * @param lines The lines of the program
+ * @return std::pair<int, bool> The value of the accumulator and whether or not the program exited normally (true) or
+ * hit an infinite loop (false)
+ */
+std::pair<int, bool> runProgram(const std::vector<ProgramLine> &lines) {
 	std::set<int> visitedLines;
 	int accumulator = 0;
 	int programCounter = 0;
-	while (true) {
+	while (programCounter < lines.size()) {
 		ProgramLine line = lines.at(programCounter);
 		if (visitedLines.find(programCounter) != visitedLines.end()) {
-			return accumulator;
+			return std::pair<int, bool>(accumulator, false);
 		}
 		visitedLines.insert(programCounter);
 
@@ -82,6 +100,33 @@ int part1(const std::vector<ProgramLine> &lines) {
 
 		programCounter++;
 	}
+
+	return std::pair<int, bool>(accumulator, true);
+}
+
+int part1(const std::vector<ProgramLine> &lines) {
+	return runProgram(lines).first;
+}
+
+int part2(const std::vector<ProgramLine> &lines) {
+	for (auto it = lines.cbegin(); it != lines.end(); it++) {
+		if (it->getInstruction() != JUMP_INSTRUCTION && it->getInstruction() != NOP_INSTRUCTION) {
+			continue;
+		}
+
+		std::vector<ProgramLine> mutatedLines(lines);
+		ProgramLine &instructionToMutate = mutatedLines.at(it - lines.cbegin());
+		auto newInstruction =
+			instructionToMutate.getInstruction() == JUMP_INSTRUCTION ? NOP_INSTRUCTION : JUMP_INSTRUCTION;
+		instructionToMutate.setInstruction(newInstruction);
+		auto result = runProgram(mutatedLines);
+		// If the program terminated normally, we're done
+		if (result.second) {
+			return result.first;
+		}
+	}
+
+	throw new std::invalid_argument("No solution in input");
 }
 
 int main(int argc, char *argv[]) {
@@ -94,4 +139,5 @@ int main(int argc, char *argv[]) {
 	auto programLines = parseProgramLines(input);
 
 	std::cout << part1(programLines) << std::endl;
+	std::cout << part2(programLines) << std::endl;
 }
