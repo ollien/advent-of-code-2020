@@ -124,6 +124,7 @@ int part2(const std::vector<ProgramLine> &lines) {
 		if (result.second) {
 			return result.first;
 		}
+		// Otherwise, keep searching for a program that terminates normally
 	}
 
 	throw new std::invalid_argument("No solution in input");
