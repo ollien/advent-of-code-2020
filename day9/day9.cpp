@@ -56,7 +56,7 @@ bool numberThatSumsInRange(int total, int candidate, Iter start, Iter end) {
 	return false;
 }
 
-int part1(const std::vector<long> &numbers) {
+long part1(const std::vector<long> &numbers) {
 	for (auto checkIterator = numbers.begin() + PREAMBLE_SIZE; checkIterator != numbers.end(); checkIterator++) {
 		auto rangeStart = checkIterator - PREAMBLE_SIZE;
 		auto rangeEnd = checkIterator;
@@ -76,6 +76,23 @@ int part1(const std::vector<long> &numbers) {
 	throw std::invalid_argument("No solution in input");
 }
 
+long part2(const std::vector<long> &numbers) {
+	long desired = part1(numbers);
+	for (auto rangeStartIterator = numbers.begin(); rangeStartIterator != numbers.end(); rangeStartIterator++) {
+		for (auto rangeEndIterator = rangeStartIterator + 1; rangeEndIterator != numbers.end(); rangeEndIterator++) {
+			auto total = std::accumulate(
+				rangeStartIterator, rangeEndIterator, 0, [](int num, int total) { return num + total; });
+			if (total == desired) {
+				auto min = std::min_element(rangeStartIterator, rangeEndIterator);
+				auto max = std::max_element(rangeStartIterator, rangeEndIterator);
+				return *min + *max;
+			}
+		}
+	}
+
+	throw std::invalid_argument("No solution in input");
+}
+
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
 		std::cerr << argv[0] << " <input_file>" << std::endl;
@@ -86,4 +103,5 @@ int main(int argc, char *argv[]) {
 	auto numbers = convertInputToNumbers(input);
 
 	std::cout << part1(numbers) << std::endl;
+	std::cout << part2(numbers) << std::endl;
 }
