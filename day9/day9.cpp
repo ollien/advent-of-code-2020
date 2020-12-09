@@ -6,7 +6,6 @@
 #include <iostream>
 #include <map>
 #include <numeric>
-#include <optional>
 #include <regex>
 #include <set>
 #include <string_view>
@@ -25,6 +24,11 @@ std::vector<std::string> readInput(const std::string &filename) {
 	return input;
 }
 
+/**
+ * Convert a vector of strings to a vector of numbers
+ * @param input The input for the puzzle
+ * @return std::vector<long> The puzzle input as numbers
+ */
 std::vector<long> convertInputToNumbers(const std::vector<std::string> &input) {
 	std::vector<long> converted;
 	converted.reserve(input.size());
@@ -35,57 +39,38 @@ std::vector<long> convertInputToNumbers(const std::vector<std::string> &input) {
 	return converted;
 }
 
-/**
- * Find a number in the range that, it, plus candidate, equals total.
- * @tparam Iter
- * @param total The number to sum to
- * @param candidate The number to sum with
- * @param start The start of the range
- * @param end The end of the range
- * @return bool If such a number exists, return true, false otherwise.
- */
-template <typename Iter>
-bool numberThatSumsInRange(int total, int candidate, Iter start, Iter end) {
-	for (Iter it = start; it != end; it++) {
-		// std::cout << *it << std::endl;
-		if (candidate + *it == total) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 long part1(const std::vector<long> &numbers) {
-	for (auto checkIterator = numbers.begin() + PREAMBLE_SIZE; checkIterator != numbers.end(); checkIterator++) {
-		auto rangeStart = checkIterator - PREAMBLE_SIZE;
-		auto rangeEnd = checkIterator;
-		std::optional<int> foundNumber;
-		for (auto it = rangeStart; it != rangeEnd; it++) {
-			if (numberThatSumsInRange(*checkIterator, *it, rangeStart, rangeEnd)) {
-				foundNumber = *checkIterator;
-				break;
-			}
-		}
+	for (auto totalIterator = numbers.cbegin() + PREAMBLE_SIZE; totalIterator != numbers.cend(); totalIterator++) {
+		// Though we skip the first PREAMBLE_SIZE to find the number to sum to, we want to start summing as if we didn't
+		// do that
+		auto rangeStart = totalIterator - PREAMBLE_SIZE;
+		auto rangeEnd = totalIterator;
+		auto result = std::find_if(rangeStart, rangeEnd, [=](long candidate1) {
+			auto candidate2 = std::find_if(
+				rangeStart, rangeEnd, [=](long candidate2) { return candidate1 + candidate2 == *totalIterator; });
 
-		if (!foundNumber.has_value()) {
-			return *checkIterator;
+			return candidate2 != rangeEnd;
+		});
+
+		if (result == rangeEnd) {
+			return *totalIterator;
 		}
 	}
 
 	throw std::invalid_argument("No solution in input");
 }
 
-long part2(const std::vector<long> &numbers) {
-	long desired = part1(numbers);
+long part2(const std::vector<long> &numbers, long desired) {
 	for (auto rangeStartIterator = numbers.begin(); rangeStartIterator != numbers.end(); rangeStartIterator++) {
 		for (auto rangeEndIterator = rangeStartIterator + 1; rangeEndIterator != numbers.end(); rangeEndIterator++) {
+			// Sum all the numbers between our two iterators
 			auto total = std::accumulate(
 				rangeStartIterator, rangeEndIterator, 0, [](int num, int total) { return num + total; });
+			// If this total is our desired, we're done
 			if (total == desired) {
-				auto min = std::min_element(rangeStartIterator, rangeEndIterator);
-				auto max = std::max_element(rangeStartIterator, rangeEndIterator);
-				return *min + *max;
+				auto minIterator = std::min_element(rangeStartIterator, rangeEndIterator);
+				auto maxIterator = std::max_element(rangeStartIterator, rangeEndIterator);
+				return *minIterator + *maxIterator;
 			}
 		}
 	}
@@ -102,6 +87,7 @@ int main(int argc, char *argv[]) {
 	auto input = readInput(argv[1]);
 	auto numbers = convertInputToNumbers(input);
 
-	std::cout << part1(numbers) << std::endl;
-	std::cout << part2(numbers) << std::endl;
+	auto part1Answer = part1(numbers);
+	std::cout << part1Answer << std::endl;
+	std::cout << part2(numbers, part1Answer) << std::endl;
 }
