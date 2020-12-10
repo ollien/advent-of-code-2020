@@ -58,6 +58,39 @@ Value getOrDefault(const std::map<Key, Value> &map, Key key, Value defaultValue)
 	}
 }
 
+/**
+ * Finds the number of paths from the given source node to the target (the end of the adapters lsit)
+ * Based on algorithm from:
+ * https://cs.stackexchange.com/questions/3078/algorithm-that-finds-the-number-of-simple-paths-from-s-to-t-in-g
+ * @param adapters The puzzle input, prepared by prepareAdapters
+ * @param numPaths A count of the number of paths
+ * @param source The node to start from
+ * @return long
+ */
+long solvePart2WithGraph(const std::vector<int> &adapters, std::unordered_map<int, long> &numPaths, int source = 0) {
+	int target = adapters.size() - 1;
+	if (source == target) {
+		return 1;
+	}
+
+	// If we already know the number of paths to source, we're done
+	auto pathsToSource = numPaths.find(source);
+	if (pathsToSource != numPaths.end()) {
+		return pathsToSource->second;
+	}
+
+	// Find the number of paths by just checking all off the neighbors
+	// Something is defined as a neighbor if we can get to it by addding [1, 3]
+	long total = 0;
+	for (int i = source + 1; i < adapters.size() && adapters.at(i) - adapters.at(source) <= MAX_VOLTAGE_DELTA; i++) {
+		total += solvePart2WithGraph(adapters, numPaths, i);
+	}
+
+	numPaths.emplace(source, total);
+
+	return total;
+}
+
 int part1(const std::vector<int> &input) {
 	std::map<int, int> differenceCounts;
 	std::vector<int> adapters(input);
@@ -74,16 +107,9 @@ int part1(const std::vector<int> &input) {
 long part2(const std::vector<int> &input) {
 	std::vector<int> adapters(input);
 	prepareInput(adapters);
-	// Dynamic programming approach that counts the number of ways to get to each point by backshifting
-	std::vector<long> counts(adapters.back() + 1, 0);
-	counts.at(0) = 1;
-	for (auto it = std::next(adapters.cbegin()); it != adapters.cend(); it++) {
-		for (int i = *it; i >= 0 && i >= *it - MAX_VOLTAGE_DELTA; i--) {
-			counts.at(*it) += counts.at(i);
-		}
-	}
+	std::unordered_map<int, long> counts;
 
-	return counts.back();
+	return solvePart2WithGraph(adapters, counts);
 }
 
 int main(int argc, char *argv[]) {
