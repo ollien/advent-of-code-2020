@@ -49,15 +49,6 @@ void prepareInput(std::vector<int> &input) {
 	std::sort(input.begin(), input.end());
 }
 
-template <typename Key, typename Value>
-Value getOrDefault(const std::map<Key, Value> &map, Key key, Value defaultValue) {
-	try {
-		return map.at(key);
-	} catch (std::out_of_range) {
-		return defaultValue;
-	}
-}
-
 /**
  * Finds the number of paths from the given source node to the target (the end of the adapters lsit)
  * Based on algorithm from:
@@ -101,7 +92,7 @@ int part1(const std::vector<int> &input) {
 		differenceCounts[difference]++;
 	}
 
-	return getOrDefault(differenceCounts, 1, 0) * getOrDefault(differenceCounts, 3, 0);
+	return differenceCounts[1] * differenceCounts[3];
 }
 
 long part2(const std::vector<int> &input) {
