@@ -1,14 +1,13 @@
 #include <folly/String.h>
 
 #include <algorithm>
-#include <execution>
 #include <fstream>
 #include <iostream>
+#include <list>
 #include <map>
 #include <numeric>
-#include <regex>
+#include <queue>
 #include <set>
-#include <string_view>
 #include <vector>
 
 constexpr auto MAX_VOLTAGE_DELTA = 3;
@@ -39,6 +38,17 @@ std::vector<int> convertInputToNumbers(const std::vector<std::string> &input) {
 	return converted;
 }
 
+/**
+ * Add the outlet and max voltage to the input list, and sort it
+ * @param input The input for the puzzle
+ */
+void prepareInput(std::vector<int> &input) {
+	int max_voltage = *std::max_element(input.cbegin(), input.cend()) + MAX_VOLTAGE_DELTA;
+	input.push_back(0);
+	input.push_back(max_voltage);
+	std::sort(input.begin(), input.end());
+}
+
 template <typename Key, typename Value>
 Value getOrDefault(const std::map<Key, Value> &map, Key key, Value defaultValue) {
 	try {
@@ -51,17 +61,29 @@ Value getOrDefault(const std::map<Key, Value> &map, Key key, Value defaultValue)
 int part1(const std::vector<int> &input) {
 	std::map<int, int> differenceCounts;
 	std::vector<int> adapters(input);
-	int max_voltage = *std::max_element(input.cbegin(), input.cend()) + MAX_VOLTAGE_DELTA;
-	adapters.insert(adapters.begin(), 0);
-	adapters.insert(adapters.begin(), max_voltage);
-	std::sort(adapters.begin(), adapters.end());
+	prepareInput(adapters);
 
-	for (auto it = adapters.cbegin() + 1; it != adapters.cend(); it++) {
-		auto difference = *it - *(it - 1);
+	for (auto it = adapters.cbegin(); it != adapters.end() && std::next(it) != adapters.cend(); it++) {
+		auto difference = *std::next(it) - *it;
 		differenceCounts[difference]++;
 	}
 
 	return getOrDefault(differenceCounts, 1, 0) * getOrDefault(differenceCounts, 3, 0);
+}
+
+long part2(const std::vector<int> &input) {
+	std::vector<int> adapters(input);
+	prepareInput(adapters);
+	// Dynamic programming approach that counts the number of ways to get to each point by backshifting
+	std::vector<long> counts(adapters.back() + 1, 0);
+	counts.at(0) = 1;
+	for (auto it = std::next(adapters.cbegin()); it != adapters.cend(); it++) {
+		for (int i = *it; i >= 0 && i >= *it - MAX_VOLTAGE_DELTA; i--) {
+			counts.at(*it) += counts.at(i);
+		}
+	}
+
+	return counts.back();
 }
 
 int main(int argc, char *argv[]) {
@@ -74,5 +96,5 @@ int main(int argc, char *argv[]) {
 	auto numericInput = convertInputToNumbers(input);
 
 	std::cout << part1(numericInput) << std::endl;
-	// std::cout << part2(numbers, part1Answer) << std::endl;
+	std::cout << part2(numericInput) << std::endl;
 }
