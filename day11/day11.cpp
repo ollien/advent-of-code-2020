@@ -1,13 +1,8 @@
-#include <folly/String.h>
-
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <list>
-#include <map>
 #include <numeric>
-#include <queue>
-#include <set>
+#include <optional>
 #include <vector>
 
 constexpr char EMPTY_CHAR = 'L';
@@ -27,14 +22,13 @@ std::vector<std::string> readInput(const std::string &filename) {
 	return input;
 }
 
-void printState(const std::vector<std::string> &state) {
-	for (const std::string &row : state) {
-		std::cout << row << std::endl;
-	}
-
-	std::cout << " " << std::endl;
-}
-
+/**
+ * Get all of the neighbors for part 1
+ * @param state The state of the board
+ * @param row The row to get neighbors for
+ * @param column The column to get neighbors for
+ * @return std::vector<char> The neighbors of this position
+ */
 std::vector<char> getPart1Neighbors(const std::vector<std::string> &state, int row, int column) {
 	std::vector<char> neighbors;
 	for (int dRow = -1; dRow <= 1; dRow++) {
@@ -65,17 +59,52 @@ int sign(T val) {
 }
 
 /**
- * Extend a pair in all directions it extends - e.g. (1, 0) becomes (2,0)
+ * Extend a ray in all directions it extends - e.g. (1, 0) becomes (2,0)
  * @tparam T The type that the pair holds
- * @param vec The vector to extend
+ * @param ray The ray to extend
  */
 template <typename T>
-void extendVector(std::pair<T, T> &vec) {
-	vec.first += sign(vec.first);
-	vec.second += sign(vec.second);
+void extendRay(std::pair<T, T> &ray) {
+	ray.first += sign(ray.first);
+	ray.second += sign(ray.second);
 }
 
+/**
+ * Cast the given ray until we hit a neighbor that is a seat
+ * @param state The current board state
+ * @param origin Where to start the ray from
+ * @param ray The ray to extend until it hits a seat
+ * @return optional<char> An optional of the neighbor that was hit. If none, this extended off the board.
+ */
+std::optional<char> castRayToSeat(
+	const std::vector<std::string> &state, const std::pair<int, int> &origin, const std::pair<int, int> &ray) {
+	std::pair<int, int> rayCursor(ray);
+	char neighbor;
+	// Keep projecting our ray until we hit a seat
+	while (neighbor != OCCUPIED_CHAR && neighbor != EMPTY_CHAR) {
+		int candidateRow = origin.first + rayCursor.first;
+		int candidateCol = origin.second + rayCursor.second;
+		if (candidateRow < 0 || candidateRow >= state.size() || candidateCol < 0 ||
+			candidateCol >= state.at(candidateRow).size()) {
+			return std::optional<char>();
+		}
+
+		neighbor = state.at(candidateRow).at(candidateCol);
+		extendRay(rayCursor);
+	}
+
+	return std::optional<char>(neighbor);
+}
+
+/**
+ * Get all of the neighbors for part 2
+ * @param state The state of the board
+ * @param row The row to get neighbors for
+ * @param column The column to get neighbors for
+ * @return std::vector<char> The neighbors of this position
+ */
 std::vector<char> getPart2Neighbors(const std::vector<std::string> &state, int row, int column) {
+	std::pair<int, int> rayOrigin(row, column);
 	std::vector<char> neighbors;
 	for (int dRow = -1; dRow <= 1; dRow++) {
 		for (int dCol = -1; dCol <= 1; dCol++) {
@@ -83,28 +112,24 @@ std::vector<char> getPart2Neighbors(const std::vector<std::string> &state, int r
 				continue;
 			}
 
-			std::pair<int, int> deltaVector(dRow, dCol);
-			char neighbor = FLOOR_CHAR;
-			// Keep projecting our ray until we hit a non floor char
-			while (neighbor == FLOOR_CHAR) {
-				int candidateRow = row + deltaVector.first;
-				int candidateCol = column + deltaVector.second;
-				if (candidateRow < 0 || candidateRow >= state.size() || candidateCol < 0 ||
-					candidateCol >= state.at(candidateRow).size()) {
-					break;
-				}
-
-				neighbor = state.at(candidateRow).at(candidateCol);
-				extendVector(deltaVector);
+			std::pair<int, int> deltaRay(dRow, dCol);
+			std::optional<char> neighbor = castRayToSeat(state, rayOrigin, deltaRay);
+			if (neighbor.has_value()) {
+				neighbors.push_back(*neighbor);
 			}
-
-			neighbors.push_back(neighbor);
 		}
 	}
 
 	return neighbors;
 }
 
+/**
+ * Apply the automata rules to a single seat
+ * @param neighbors The neighbors of the location to check
+ * @param seatState The state of the seat to check
+ * @param occupiedThreshold How many seats must be occupied surrounding the location to the seat
+ * @return char The new state for this position
+ */
 char applyRules(const std::vector<char> &neighbors, char seatState, int occupiedThreshold) {
 	int numOccupied =
 		std::count_if(neighbors.begin(), neighbors.end(), [](char neighbor) { return neighbor == OCCUPIED_CHAR; });
@@ -117,12 +142,19 @@ char applyRules(const std::vector<char> &neighbors, char seatState, int occupied
 	}
 }
 
+/**
+ * Run the simulation to completion
+ * @param input The input for the puzzle
+ * @param occupiedThreshold The number of seats that need to be occupied surrounding a seat to empty it
+ * @param getNeighbors A function to get the neighbors surrounding a position
+ * @return int The puzzle answer
+ */
 int runSimulation(
 	const std::vector<std::string> &input, int occupiedThreshold,
 	std::function<std::vector<char>(const std::vector<std::string>, int, int)> getNeighbors) {
 	std::vector<std::string> state(input);
 	std::vector<std::string> nextState(input.size(), std::string(input.at(0).size(), ' '));
-	for (int count = 0; state != nextState; count++) {
+	while (state != nextState) {
 		for (int i = 0; i < state.size(); i++) {
 			for (int j = 0; j < input.at(i).size(); j++) {
 				std::vector<char> neighbors = getNeighbors(state, i, j);
@@ -131,7 +163,6 @@ int runSimulation(
 			}
 		}
 
-		printState(state);
 		std::swap(state, nextState);
 	}
 
@@ -156,6 +187,6 @@ int main(int argc, char *argv[]) {
 
 	auto input = readInput(argv[1]);
 
-	// std::cout << part1(input) << std::endl;
+	std::cout << part1(input) << std::endl;
 	std::cout << part2(input) << std::endl;
 }
