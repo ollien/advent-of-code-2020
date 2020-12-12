@@ -9,13 +9,21 @@
 constexpr int NUM_DIRECTIONS = 4;
 enum CardinalDirection { NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3 };
 
-class Ship {
+class MovablePoint {
  public:
-	Ship(CardinalDirection direction, std::pair<int, int> position) : direction(direction), position(position) {
+	MovablePoint(CardinalDirection direction, std::pair<int, int> position) : direction(direction), position(position) {
 	}
 
 	const std::pair<int, int> &getPosition() const {
 		return this->position;
+	}
+
+	void setPosition(const std::pair<int, int> &position) {
+		this->position = position;
+	}
+
+	void setPosition(std::pair<int, int> &&position) {
+		this->position = position;
 	}
 
 	CardinalDirection getDirection() const {
@@ -31,7 +39,7 @@ class Ship {
 	}
 
 	void move(int value, CardinalDirection direction) {
-		int delta = (direction == SOUTH || direction == EAST) ? -value : value;
+		int delta = (direction == SOUTH || direction == WEST) ? -value : value;
 		if (direction == NORTH || direction == SOUTH) {
 			this->position.second += delta;
 		} else {
@@ -46,6 +54,29 @@ class Ship {
 	void turnRight(int deg) {
 		// Three lefts make a right - easier than dealing with negative mods
 		this->addToDirection(deg / 90);
+	}
+
+	void rotatePosition(int degrees) {
+		int x = this->position.first;
+		int y = this->position.second;
+		// This is an awful way of writing a rotation, but it basically just hacking in the three parts of the rotation
+		// matrix I need
+		auto stepAmount = degrees / abs(degrees / 90);
+		if (abs(stepAmount) != 90) {
+			throw std::invalid_argument("Invalid rotation amount");
+		}
+		for (int i = 0; i < abs(degrees / 90); i++) {
+			int tmpX = x;
+			x = -y;
+			y = tmpX;
+			if (stepAmount < 0) {
+				x *= -1;
+				y *= -1;
+			}
+		}
+
+		this->position.first = x;
+		this->position.second = y;
 	}
 
  private:
@@ -86,7 +117,7 @@ std::vector<std::pair<char, int>> parseInput(const std::vector<std::string> &inp
 	return parsedInput;
 }
 
-void makeMove(Ship &ship, const std::pair<char, int> &move) {
+void moveShip(MovablePoint &ship, const std::pair<char, int> &move) {
 	char directive = move.first;
 	int magnitude = move.second;
 	switch (directive) {
@@ -116,10 +147,53 @@ void makeMove(Ship &ship, const std::pair<char, int> &move) {
 	}
 }
 
+void moveShipOrWaypoint(MovablePoint &ship, MovablePoint &waypoint, const std::pair<char, int> &move) {
+	char directive = move.first;
+	int magnitude = move.second;
+	switch (directive) {
+		case 'L':
+			waypoint.rotatePosition(magnitude);
+			break;
+		case 'R':
+			waypoint.rotatePosition(-magnitude);
+			break;
+		case 'N':
+			waypoint.move(magnitude, NORTH);
+			break;
+		case 'S':
+			waypoint.move(magnitude, SOUTH);
+			break;
+		case 'E':
+			waypoint.move(magnitude, EAST);
+			break;
+		case 'W':
+			waypoint.move(magnitude, WEST);
+			break;
+		case 'F': {
+			auto shipPosition = ship.getPosition();
+			shipPosition.first += waypoint.getPosition().first * magnitude;
+			shipPosition.second += waypoint.getPosition().second * magnitude;
+			ship.setPosition(std::move(shipPosition));
+		} break;
+		default:
+			throw std::invalid_argument("Invalid move direction");
+	}
+}
+
 int part1(const std::vector<std::pair<char, int>> &input) {
-	Ship ship(EAST, std::pair<int, int>(0, 0));
+	MovablePoint ship(EAST, std::pair<int, int>(0, 0));
 	for (auto &move : input) {
-		makeMove(ship, move);
+		moveShip(ship, move);
+	}
+
+	return abs(ship.getPosition().first) + abs(ship.getPosition().second);
+}
+
+int part2(const std::vector<std::pair<char, int>> &input) {
+	MovablePoint ship(EAST, std::pair<int, int>(0, 0));
+	MovablePoint waypoint(EAST, std::pair<int, int>(10, 1));
+	for (auto &move : input) {
+		moveShipOrWaypoint(ship, waypoint, move);
 	}
 
 	return abs(ship.getPosition().first) + abs(ship.getPosition().second);
@@ -135,4 +209,5 @@ int main(int argc, char *argv[]) {
 	auto parsedInput = parseInput(input);
 
 	std::cout << part1(parsedInput) << std::endl;
+	std::cout << part2(parsedInput) << std::endl;
 }
