@@ -83,13 +83,14 @@ class MovablePoint {
 	void rotatePosition(int degrees) {
 		int x = this->position.first;
 		int y = this->position.second;
-		// This is an awful way of writing a rotation, but it basically just hacking in the three parts of the rotation
+		// This is an awful way of writing a rotation, but it basically just hacking in the two parts of the rotation
 		// matrix I need
-		auto stepAmount = degrees / abs(degrees / 90);
+		int numSteps = abs(degrees / 90);
+		int stepAmount = degrees / numSteps;
 		if (abs(stepAmount) != 90) {
 			throw std::invalid_argument("Invalid rotation amount");
 		}
-		for (int i = 0; i < abs(degrees / 90); i++) {
+		for (int i = 0; i < numSteps; i++) {
 			std::swap(x, y);
 			if (stepAmount < 0) {
 				y *= -1;
