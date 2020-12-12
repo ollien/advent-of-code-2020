@@ -9,6 +9,9 @@
 constexpr int NUM_DIRECTIONS = 4;
 enum CardinalDirection { NORTH = 0, EAST = 1, SOUTH = 2, WEST = 3 };
 
+/**
+ * MovablePoint represents either a ship or a waypoint
+ */
 class MovablePoint {
  public:
 	MovablePoint(CardinalDirection direction, std::pair<int, int> position) : direction(direction), position(position) {
@@ -34,10 +37,19 @@ class MovablePoint {
 		this->direction = direction;
 	}
 
+	/**
+	 * Move this point in the direction it is currently pointing, by the given magnitude
+	 * @param value The magnitude to move by
+	 */
 	void move(int value) {
 		this->move(value, this->direction);
 	}
 
+	/**
+	 * Move this point in the direction given, by the given magnitude
+	 * @param value The magnitude to move by
+	 * @param direction The direction to move by
+	 */
 	void move(int value, CardinalDirection direction) {
 		int delta = (direction == SOUTH || direction == WEST) ? -value : value;
 		if (direction == NORTH || direction == SOUTH) {
@@ -47,15 +59,27 @@ class MovablePoint {
 		}
 	}
 
+	/**
+	 * Change the direction of this point by rotating left
+	 * @param deg The degrees to ratate by - must be in increments of 90 deg
+	 */
 	void turnLeft(int deg) {
+		// Three rights make a left - easier than dealing with negative mods
 		this->addToDirection(3 * deg / 90);
 	}
 
+	/**
+	 * Change the direction of this point by rotating right
+	 * @param deg The degrees to ratate by - must be in increments of 90 deg
+	 */
 	void turnRight(int deg) {
-		// Three lefts make a right - easier than dealing with negative mods
 		this->addToDirection(deg / 90);
 	}
 
+	/**
+	 * Rotater this point about the origin
+	 * @param degrees The number of degrees to move - must be in 90 degree increments
+	 */
 	void rotatePosition(int degrees) {
 		int x = this->position.first;
 		int y = this->position.second;
@@ -66,12 +90,11 @@ class MovablePoint {
 			throw std::invalid_argument("Invalid rotation amount");
 		}
 		for (int i = 0; i < abs(degrees / 90); i++) {
-			int tmpX = x;
-			x = -y;
-			y = tmpX;
+			std::swap(x, y);
 			if (stepAmount < 0) {
-				x *= -1;
 				y *= -1;
+			} else {
+				x *= -1;
 			}
 		}
 
@@ -80,6 +103,11 @@ class MovablePoint {
 	}
 
  private:
+	/**
+	 * Add to the direction enum by the given amount, wrapping around in the positive direction only. Negative inputs
+	 * will produce bad enumv alues
+	 * @param delta The delta to rotate the direction by
+	 */
 	void addToDirection(int delta) {
 		this->direction = static_cast<CardinalDirection>((this->direction + delta) % NUM_DIRECTIONS);
 	}
@@ -99,6 +127,11 @@ std::vector<std::string> readInput(const std::string &filename) {
 	return input;
 }
 
+/**
+ * Parse the input to a usable format
+ * @param input The puzzle input
+ * @return std::vector<std::pair<char, int>> A vector of pairs of <directive, magnitude>
+ */
 std::vector<std::pair<char, int>> parseInput(const std::vector<std::string> &input) {
 	std::vector<std::pair<char, int>> parsedInput;
 	parsedInput.reserve(input.size());
@@ -117,6 +150,11 @@ std::vector<std::pair<char, int>> parseInput(const std::vector<std::string> &inp
 	return parsedInput;
 }
 
+/**
+ * Move the ship (for part 1)
+ * @param ship The ship to move
+ * @param move The move to perform
+ */
 void moveShip(MovablePoint &ship, const std::pair<char, int> &move) {
 	char directive = move.first;
 	int magnitude = move.second;
@@ -147,6 +185,11 @@ void moveShip(MovablePoint &ship, const std::pair<char, int> &move) {
 	}
 }
 
+/**
+ * Move the ship or the waypoint, depending on the direction (for part 2)
+ * @param ship The ship to move
+ * @param move The move to perform
+ */
 void moveShipOrWaypoint(MovablePoint &ship, MovablePoint &waypoint, const std::pair<char, int> &move) {
 	char directive = move.first;
 	int magnitude = move.second;
