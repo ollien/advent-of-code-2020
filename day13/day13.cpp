@@ -1,6 +1,7 @@
 #include <folly/String.h>
 
 #include <algorithm>
+#include <cassert>
 #include <charconv>
 #include <fstream>
 #include <iostream>
@@ -65,6 +66,39 @@ int part1(int busStartTime, const std::vector<std::string> &rawBusTimes) {
 	return bestBusID * timeToWait;
 }
 
+long part2(const std::vector<std::string> rawBusTimes) {
+	int nextBusOffsset = 0;
+	// Holds both the bus time and its offset from the time t.
+	std::vector<std::pair<int, int>> busTimes;
+	busTimes.reserve(rawBusTimes.size());
+	for (auto it = rawBusTimes.cbegin(); it != rawBusTimes.cend(); (it++, nextBusOffsset++)) {
+		auto rawBusTime = *it;
+		if (rawBusTime == OUT_OF_SERVICE_BUS) {
+			continue;
+		}
+
+		int busTime = std::stoi(rawBusTime);
+		busTimes.emplace_back(busTime, nextBusOffsset);
+	}
+
+	auto cursor = busTimes.cbegin();
+	long t = cursor->first;
+	long stepSize = cursor->first;
+	cursor++;
+	while (cursor != busTimes.cend()) {
+		t += stepSize;
+		// Find the time that next bus that will start at the offset after t
+		if ((t + cursor->second) % cursor->first != 0) {
+			continue;
+		}
+
+		stepSize = std::lcm(stepSize, cursor->first);
+		cursor++;
+	}
+
+	return t;
+}
+
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
 		std::cerr << argv[0] << " <input_file>" << std::endl;
@@ -75,4 +109,5 @@ int main(int argc, char *argv[]) {
 	auto parsedInput = splitInput(input);
 
 	std::cout << part1(parsedInput.first, parsedInput.second) << std::endl;
+	std::cout << part2(parsedInput.second) << std::endl;
 }
