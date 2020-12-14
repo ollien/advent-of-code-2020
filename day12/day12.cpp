@@ -26,7 +26,7 @@ class MovablePoint {
 	}
 
 	void setPosition(std::pair<int, int> &&position) {
-		this->position = position;
+		this->position = std::move(position);
 	}
 
 	CardinalDirection getDirection() const {
