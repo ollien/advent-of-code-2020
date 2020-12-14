@@ -17,8 +17,12 @@ constexpr auto MEM_PATTERN = R"(mem\[(\d+)\] = (\d+))";
  */
 class InstructionBlock {
  public:
-	InstructionBlock(std::string mask, std::vector<std::pair<int, int>> storeInstructions)
+	InstructionBlock(const std::string &mask, const std::vector<std::pair<int, int>> &storeInstructions)
 		: mask(mask), storeInstructions(storeInstructions) {
+	}
+
+	InstructionBlock(std::string &&mask, std::vector<std::pair<int, int>> &&storeInstructions)
+		: mask(std::move(mask)), storeInstructions(std::move(storeInstructions)) {
 	}
 
 	/**
@@ -134,7 +138,7 @@ std::vector<InstructionBlock> parseInput(const std::vector<std::string> &input) 
 		if (std::regex_match(line, matches, maskExpression)) {
 			// We don't want to emplace on the first mask we find
 			if (it != input.cbegin()) {
-				blocks.emplace_back(currentMask, currentStoreInstructions);
+				blocks.emplace_back(std::move(currentMask), std::move(currentStoreInstructions));
 				currentStoreInstructions.clear();
 			}
 
@@ -147,7 +151,7 @@ std::vector<InstructionBlock> parseInput(const std::vector<std::string> &input) 
 	}
 
 	// Put in the last one we've found
-	blocks.emplace_back(currentMask, currentStoreInstructions);
+	blocks.emplace_back(std::move(currentMask), std::move(currentStoreInstructions));
 
 	return blocks;
 }
