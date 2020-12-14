@@ -15,14 +15,22 @@ constexpr char IGNORE_CHAR = 'X';
 constexpr auto MASK_PATTERN = R"(mask = ([X0-9]+))";
 constexpr auto MEM_PATTERN = R"(mem\[(\d+)\] = (\d+))";
 
+/**
+ * Represents a block of instructions with a given mask
+ */
 class InstructionBlock {
  public:
 	InstructionBlock(std::string mask, std::vector<std::pair<int, int>> storeInstructions)
 		: mask(mask), storeInstructions(storeInstructions) {
 	}
 
-	// We are dealing with a 36 bit numebr so we must use a long long to guarantee we can fit it
+	/**
+	 * Mask a value to be stored in memory, in accordance with the mask for this block
+	 * @param num The number to mask
+	 * @return long long The masked value
+	 */
 	long long maskValue(long long num) const {
+		// We are dealing with a 36 bit numebr so we must use a long long to guarantee we can fit it
 		long long res = num;
 		for (int i = 0; i < this->mask.size(); i++) {
 			char maskChar = this->mask.at(this->mask.size() - i - 1);
@@ -36,6 +44,11 @@ class InstructionBlock {
 		return res;
 	}
 
+	/**
+	 * Mask a memory address, in accordance with the mask for this block
+	 * @param address The address to mask
+	 * @return std::vector<long long> All of the possible masked addresses
+	 */
 	std::vector<long long> maskMemoryAddress(long long address) const {
 		return this->recursivelyMaskAddresses(address);
 	}
@@ -48,6 +61,13 @@ class InstructionBlock {
 	std::string mask;
 	std::vector<std::pair<int, int>> storeInstructions;
 
+	/**
+	 * Set a bit at the given position
+	 * @param value The value set the value within
+	 * @param position The position to set the bit at
+	 * @param bit The bit to set, either 0 or 1
+	 * @return long long The value with the bit set
+	 */
 	long long setBitAt(long long value, int position, char bit) const {
 		auto res = value;
 		if (bit == '0') {
@@ -61,6 +81,12 @@ class InstructionBlock {
 		return res;
 	}
 
+	/**
+	 * Perform the masking needed for the memory address
+	 * @param address The address to mask
+	 * @param startIdx The index to start the search at
+	 * @return std::vector<long long> All of the possible masked addresses
+	 */
 	std::vector<long long> recursivelyMaskAddresses(long long address, int startIdx = 0) const {
 		std::vector<long long> results;
 		long long res = address;
@@ -94,6 +120,11 @@ std::vector<std::string> readInput(const std::string &filename) {
 	return input;
 }
 
+/**
+ * Parse the input into InstructionBlocks
+ * @param input The input to parse
+ * @return std::vector<InstructionBlock> The parsed input
+ */
 std::vector<InstructionBlock> parseInput(const std::vector<std::string> &input) {
 	std::vector<InstructionBlock> blocks;
 	std::regex maskExpression(MASK_PATTERN);
