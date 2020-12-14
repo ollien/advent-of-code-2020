@@ -29,7 +29,7 @@ class InstructionBlock {
 	long long maskValue(long long num) const {
 		// We are dealing with a 36 bit numebr so we must use a long long to guarantee we can fit it
 		long long res = num;
-		for (int i = 0; i < this->mask.size(); i++) {
+		for (std::string::size_type i = 0; i < this->mask.size(); i++) {
 			char maskChar = this->mask.at(this->mask.size() - i - 1);
 			if (maskChar == IGNORE_CHAR) {
 				continue;
@@ -84,10 +84,10 @@ class InstructionBlock {
 	 * @param startIdx The index to start the search at
 	 * @return std::vector<long long> All of the possible masked addresses
 	 */
-	std::vector<long long> recursivelyMaskAddresses(long long address, int startIdx = 0) const {
+	std::vector<long long> recursivelyMaskAddresses(long long address, std::string::size_type startIdx = 0) const {
 		std::vector<long long> results;
 		long long res = address;
-		for (int i = startIdx; i < this->mask.size(); i++) {
+		for (std::string::size_type i = startIdx; i < this->mask.size(); i++) {
 			char maskChar = this->mask.at(this->mask.size() - i - 1);
 			if (maskChar == IGNORE_CHAR) {
 				auto masked0 = this->setBitAt(res, i, '0');
