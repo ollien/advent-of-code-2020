@@ -1,18 +1,10 @@
 #include <folly/String.h>
 
-#include <algorithm>
-#include <charconv>
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <numeric>
-#include <regex>
-#include <set>
+#include <string>
 #include <vector>
-
-constexpr char IGNORE_CHAR = 'X';
-constexpr auto MASK_PATTERN = R"(mask = ([X0-9]+))";
-constexpr auto MEM_PATTERN = R"(mem\[(\d+)\] = (\d+))";
 
 std::vector<std::string> readInput(const std::string &filename) {
 	std::vector<std::string> input;
@@ -38,7 +30,7 @@ std::vector<int> parseStartingNumbers(const std::vector<std::string> &input) {
 	return startingNumbers;
 }
 
-int solve(const std::vector<int> &startingNumbers, int max_n) {
+int solve(const std::vector<int> &startingNumbers, int num_turns) {
 	std::unordered_map<int, int> turnSpoken;
 	int lastNumber = startingNumbers.back();
 	// Skip past the starting numbers< put them at the proper place
@@ -47,7 +39,7 @@ int solve(const std::vector<int> &startingNumbers, int max_n) {
 	}
 
 	// Keep passing on until the right n
-	for (int turn = startingNumbers.size() + 1; turn <= max_n; turn++) {
+	for (int turn = startingNumbers.size() + 1; turn <= num_turns; turn++) {
 		int number = 0;
 		if (turnSpoken.find(lastNumber) != turnSpoken.end()) {
 			number = (turn - 1) - turnSpoken.at(lastNumber);
