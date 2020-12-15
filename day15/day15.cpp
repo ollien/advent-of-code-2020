@@ -38,18 +38,21 @@ std::vector<int> parseStartingNumbers(const std::vector<std::string> &input) {
 	return startingNumbers;
 }
 
-int part1(const std::vector<int> &startingNumbers) {
+int solve(const std::vector<int> &startingNumbers, int max_n) {
 	std::unordered_map<int, int> turnSpoken;
 	int lastNumber = startingNumbers.back();
+	// Skip past the starting numbers< put them at the proper place
 	for (std::vector<int>::size_type turn = 1; turn < startingNumbers.size(); turn++) {
 		turnSpoken.emplace(startingNumbers.at(turn - 1), turn);
 	}
 
-	for (int turn = startingNumbers.size() + 1; turn <= 2020; turn++) {
+	// Keep passing on until the right n
+	for (int turn = startingNumbers.size() + 1; turn <= max_n; turn++) {
 		int number = 0;
 		if (turnSpoken.find(lastNumber) != turnSpoken.end()) {
 			number = (turn - 1) - turnSpoken.at(lastNumber);
 		}
+
 		turnSpoken[lastNumber] = turn - 1;
 		lastNumber = number;
 	}
@@ -66,5 +69,6 @@ int main(int argc, char *argv[]) {
 	auto input = readInput(argv[1]);
 	auto startingNumbers = parseStartingNumbers(input);
 
-	std::cout << part1(startingNumbers) << std::endl;
+	std::cout << solve(startingNumbers, 2020) << std::endl;
+	std::cout << solve(startingNumbers, 30000000) << std::endl;
 }
