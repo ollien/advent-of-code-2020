@@ -12,17 +12,20 @@ constexpr auto NEARBY_TICKETS_HEADER = "nearby tickets:";
 constexpr auto YOUR_TICKET_HEADER = "your ticket:";
 constexpr auto RANGE_PATTERN = R"((\d+)-(\d+) or (\d+)-(\d+))";
 
+// This has to be the grossest type signature I've written in a while, but it's of
+// a-b or c-d maps to pair<a, b> or pair<c ,d>
+using RangeSpec = std::pair<std::pair<int, int>, std::pair<int, int>>;
+
 class TicketSpec {
  public:
 	TicketSpec(
-		std::vector<int> &ourTicket, std::vector<std::vector<int>> &otherTickets,
-		std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> &fieldRanges)
+		std::vector<int> &ourTicket, std::vector<std::vector<int>> &otherTickets, std::vector<RangeSpec> &fieldRanges)
 		: ourTicket(ourTicket), otherTickets(otherTickets), fieldRanges(fieldRanges) {
 	}
 
 	TicketSpec(
 		std::vector<int> &&ourTicket, std::vector<std::vector<int>> &&otherTickets,
-		std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> &&fieldRanges)
+		std::vector<RangeSpec> &&fieldRanges)
 		: ourTicket(std::move(ourTicket)), otherTickets(std::move(otherTickets)), fieldRanges(std::move(fieldRanges)) {
 	}
 
@@ -34,16 +37,14 @@ class TicketSpec {
 		return this->otherTickets;
 	}
 
-	const std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> &getFieldRanges() const {
+	const std::vector<RangeSpec> &getFieldRanges() const {
 		return this->fieldRanges;
 	}
 
  private:
 	std::vector<int> ourTicket;
 	std::vector<std::vector<int>> otherTickets;
-	// This has to be the grossest type signature I've written in a while, but it's of
-	// a-b or c-d maps to pair<a, b> or pair<c ,d>
-	std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> fieldRanges;
+	std::vector<RangeSpec> fieldRanges;
 };
 
 std::vector<std::string> readInput(const std::string &filename) {
@@ -58,8 +59,8 @@ std::vector<std::string> readInput(const std::string &filename) {
 }
 
 template <typename Iter>
-std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> findPairs(Iter start, Iter end) {
-	std::vector<std::pair<std::pair<int, int>, std::pair<int, int>>> pairs;
+std::vector<RangeSpec> findRanges(Iter start, Iter end) {
+	std::vector<RangeSpec> pairs;
 	std::regex rangeExpression(RANGE_PATTERN);
 	for (auto textIter = start; textIter != end; ++textIter) {
 		std::smatch matches;
@@ -96,7 +97,7 @@ TicketSpec parseInput(const std::vector<std::string> &input) {
 	auto ruleEnd = std::find(input.cbegin(), input.cend(), "");
 	auto yourTicketBegin = std::find(input.cbegin(), input.cend(), YOUR_TICKET_HEADER);
 	auto nearbyTicketsBegin = std::find(input.cbegin(), input.cend(), NEARBY_TICKETS_HEADER);
-	auto pairs = findPairs(input.begin(), ruleEnd);
+	auto pairs = findRanges(input.begin(), ruleEnd);
 	auto nearbyTickets = parseNearbyTickets(nearbyTicketsBegin + 1, input.cend());
 	auto yourTicket = parseTicket(*(yourTicketBegin + 1));
 
@@ -105,9 +106,7 @@ TicketSpec parseInput(const std::vector<std::string> &input) {
 
 bool inRangesForTicket(int value, const TicketSpec &ticketSpec) {
 	return std::any_of(
-		ticketSpec.getFieldRanges().cbegin(),
-		ticketSpec.getFieldRanges().cend(),
-		[value](const std::pair<std::pair<int, int>, std::pair<int, int>> &ranges) {
+		ticketSpec.getFieldRanges().cbegin(), ticketSpec.getFieldRanges().cend(), [value](const RangeSpec &ranges) {
 			auto range1 = ranges.first;
 			auto range2 = ranges.second;
 			return (value >= range1.first && value <= range1.second) ||
