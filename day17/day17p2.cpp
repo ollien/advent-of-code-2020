@@ -1,5 +1,4 @@
-#include <folly/String.h>
-
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -8,11 +7,7 @@
 #include <tuple>
 #include <vector>
 
-constexpr char ALIVE_CHAR = '#';
-constexpr char DEAD_CHAR = '.';
-constexpr int CYCLE_COUNT = 6;
-
-enum CellState { ALIVE, DEAD };
+#include "common.hpp"
 
 using Position = std::tuple<int, int, int, int>;
 using Board = std::map<Position, CellState>;
@@ -68,70 +63,26 @@ int getNumAdjacentLiveNeighbors(const Board &board, int row, int col, int depth,
 	return count;
 }
 
-template <int componentIndex>
-std::pair<int, int> getMinMax(const Board &board) {
-	std::vector<std::pair<Position, CellState>> alivePositions;
-	std::copy_if(
-		board.cbegin(),
-		board.cend(),
-		std::back_inserter(alivePositions),
-		[](const std::pair<Position, CellState> &item) { return item.second == ALIVE; });
-
-	auto elements = std::minmax_element(
-		alivePositions.cbegin(),
-		alivePositions.cend(),
-		[](const std::pair<Position, CellState> &item, const std::pair<Position, CellState> &item2) {
-			return std::get<componentIndex>(item.first) < std::get<componentIndex>(item2.first);
-		});
-	int minComponent = std::get<componentIndex>(elements.first->first);
-	int maxComponent = std::get<componentIndex>(elements.second->first);
-
-	return std::pair<int, int>(minComponent, maxComponent);
-}
-
+/**
+ * Get the range alive positions of each component
+ * @param board The board to check
+ * @return std::pair<Position, Position> The min and max of each component on the board
+ */
 std::pair<Position, Position> getRangeOnEachAxis(const Board &board) {
-	std::pair<int, int> rowRange = getMinMax<0>(board);
-	std::pair<int, int> colRange = getMinMax<1>(board);
-	std::pair<int, int> depthRange = getMinMax<2>(board);
-	std::pair<int, int> wRange = getMinMax<3>(board);
+	std::pair<int, int> rowRange = getMinMaxAlivePositionsForComponent<Position, 0>(board);
+	std::pair<int, int> colRange = getMinMaxAlivePositionsForComponent<Position, 1>(board);
+	std::pair<int, int> depthRange = getMinMaxAlivePositionsForComponent<Position, 2>(board);
+	std::pair<int, int> wRange = getMinMaxAlivePositionsForComponent<Position, 3>(board);
 
 	return std::pair<Position, Position>(
 		Position(rowRange.first, colRange.first, depthRange.first, wRange.first),
 		Position(rowRange.second, colRange.second, depthRange.second, wRange.second));
 }
 
-template <typename Key, typename Val>
-Val getOrDefault(const std::map<Key, Val> &map, Val defaultValue, Key key) {
-	if (map.find(key) == map.end()) {
-		return defaultValue;
-	}
-
-	return map.at(key);
-}
-
-void printBoard(const Board &board) {
-	auto ranges = getRangeOnEachAxis(board);
-	for (int depth = std::get<2>(ranges.first); depth <= std::get<2>(ranges.second); depth++) {
-		std::cout << "Depth z=" << depth << std::endl;
-		for (int w = std::get<3>(ranges.first); w <= std::get<3>(ranges.second); w++) {
-			std::cout << "Four-D w=" << w << std::endl;
-			for (int row = std::get<0>(ranges.first); row <= std::get<0>(ranges.second); row++) {
-				for (int col = std::get<1>(ranges.first); col <= std::get<1>(ranges.second); col++) {
-					Position position(row, col, depth, w);
-					CellState state = getOrDefault(board, DEAD, position);
-					std::cout << ((state == ALIVE) ? ALIVE_CHAR : DEAD_CHAR);
-				}
-				std::cout << std::endl;
-			}
-		}
-	}
-	std::cout << std::endl;
-}
 int run(const std::vector<std::string> &input) {
 	Board board = parseBoard(input);
 	Board nextBoard = board;
 	for (int i = 0; i < CYCLE_COUNT; i++) {
-		printBoard(board);
 		auto ranges = getRangeOnEachAxis(board);
 		for (int row = std::get<0>(ranges.first) - 1; row <= std::get<0>(ranges.second) + 1; row++) {
 			for (int col = std::get<1>(ranges.first) - 1; col <= std::get<1>(ranges.second) + 1; col++) {
