@@ -10,11 +10,12 @@
 
 constexpr char ALIVE_CHAR = '#';
 constexpr char DEAD_CHAR = '.';
-constexpr int PART_1_CYCLE_COUNT = 6;
+constexpr int CYCLE_COUNT = 6;
 
 enum CellState { ALIVE, DEAD };
 
-using Board = std::map<std::tuple<int, int, int>, CellState>;
+using Position = std::tuple<int, int, int, int>;
+using Board = std::map<Position, CellState>;
 
 std::vector<std::string> readInput(const std::string &filename) {
 	std::vector<std::string> input;
@@ -35,7 +36,7 @@ Board parseBoard(const std::vector<std::string> &input) {
 		int colCursor = 0;
 		for (auto colIterator = line.cbegin(); colIterator != line.cend(); (colCursor++, ++colIterator)) {
 			CellState state = *colIterator == ALIVE_CHAR ? ALIVE : DEAD;
-			std::tuple<int, int, int> position(rowCursor, colCursor, 0);
+			Position position(rowCursor, colCursor, 0, 0);
 			board.emplace(std::move(position), std::move(state));
 		}
 	}
@@ -43,21 +44,23 @@ Board parseBoard(const std::vector<std::string> &input) {
 	return board;
 }
 
-int getNumAdjacentLiveNeighbors(const Board &board, int row, int col, int depth) {
+int getNumAdjacentLiveNeighbors(const Board &board, int row, int col, int depth, int w) {
 	int count = 0;
 	for (int dRow = -1; dRow <= 1; dRow++) {
 		for (int dCol = -1; dCol <= 1; dCol++) {
 			for (int dDepth = -1; dDepth <= 1; dDepth++) {
-				if (dRow == 0 && dCol == 0 && dDepth == 0) {
-					continue;
-				}
+				for (int dW = -1; dW <= 1; dW++) {
+					if (dRow == 0 && dCol == 0 && dDepth == 0 && dW == 0) {
+						continue;
+					}
 
-				std::tuple<int, int, int> position(row + dRow, col + dCol, depth + dDepth);
-				if (board.find(position) == board.end()) {
-					continue;
-				}
+					Position position(row + dRow, col + dCol, depth + dDepth, w + dW);
+					if (board.find(position) == board.end()) {
+						continue;
+					}
 
-				count += (board.at(position) == ALIVE);
+					count += (board.at(position) == ALIVE);
+				}
 			}
 		}
 	}
@@ -67,18 +70,17 @@ int getNumAdjacentLiveNeighbors(const Board &board, int row, int col, int depth)
 
 template <int componentIndex>
 std::pair<int, int> getMinMax(const Board &board) {
-	std::vector<std::pair<std::tuple<int, int, int>, CellState>> alivePositions;
+	std::vector<std::pair<Position, CellState>> alivePositions;
 	std::copy_if(
 		board.cbegin(),
 		board.cend(),
 		std::back_inserter(alivePositions),
-		[](const std::pair<std::tuple<int, int, int>, CellState> &item) { return item.second == ALIVE; });
+		[](const std::pair<Position, CellState> &item) { return item.second == ALIVE; });
 
 	auto elements = std::minmax_element(
 		alivePositions.cbegin(),
 		alivePositions.cend(),
-		[](const std::pair<std::tuple<int, int, int>, CellState> &item,
-		   const std::pair<std::tuple<int, int, int>, CellState> &item2) {
+		[](const std::pair<Position, CellState> &item, const std::pair<Position, CellState> &item2) {
 			return std::get<componentIndex>(item.first) < std::get<componentIndex>(item2.first);
 		});
 	int minComponent = std::get<componentIndex>(elements.first->first);
@@ -87,14 +89,15 @@ std::pair<int, int> getMinMax(const Board &board) {
 	return std::pair<int, int>(minComponent, maxComponent);
 }
 
-std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>> getRangeOnEachAxis(const Board &board) {
+std::pair<Position, Position> getRangeOnEachAxis(const Board &board) {
 	std::pair<int, int> rowRange = getMinMax<0>(board);
 	std::pair<int, int> colRange = getMinMax<1>(board);
 	std::pair<int, int> depthRange = getMinMax<2>(board);
+	std::pair<int, int> wRange = getMinMax<3>(board);
 
-	return std::pair<std::tuple<int, int, int>, std::tuple<int, int, int>>(
-		std::tuple<int, int, int>(rowRange.first, colRange.first, depthRange.first),
-		std::tuple<int, int, int>(rowRange.second, colRange.second, depthRange.second));
+	return std::pair<Position, Position>(
+		Position(rowRange.first, colRange.first, depthRange.first, wRange.first),
+		Position(rowRange.second, colRange.second, depthRange.second, wRange.second));
 }
 
 template <typename Key, typename Val>
@@ -110,46 +113,49 @@ void printBoard(const Board &board) {
 	auto ranges = getRangeOnEachAxis(board);
 	for (int depth = std::get<2>(ranges.first); depth <= std::get<2>(ranges.second); depth++) {
 		std::cout << "Depth z=" << depth << std::endl;
-		for (int row = std::get<0>(ranges.first); row <= std::get<0>(ranges.second); row++) {
-			for (int col = std::get<1>(ranges.first); col <= std::get<1>(ranges.second); col++) {
-				std::tuple<int, int, int> position(row, col, depth);
-				CellState state = getOrDefault(board, DEAD, position);
-				std::cout << ((state == ALIVE) ? ALIVE_CHAR : DEAD_CHAR);
+		for (int w = std::get<3>(ranges.first); w <= std::get<3>(ranges.second); w++) {
+			std::cout << "Four-D w=" << w << std::endl;
+			for (int row = std::get<0>(ranges.first); row <= std::get<0>(ranges.second); row++) {
+				for (int col = std::get<1>(ranges.first); col <= std::get<1>(ranges.second); col++) {
+					Position position(row, col, depth, w);
+					CellState state = getOrDefault(board, DEAD, position);
+					std::cout << ((state == ALIVE) ? ALIVE_CHAR : DEAD_CHAR);
+				}
+				std::cout << std::endl;
 			}
-			std::cout << std::endl;
 		}
 	}
 	std::cout << std::endl;
 }
-
-int part1(const std::vector<std::string> &input) {
+int run(const std::vector<std::string> &input) {
 	Board board = parseBoard(input);
 	Board nextBoard = board;
-	for (int i = 0; i < PART_1_CYCLE_COUNT; i++) {
+	for (int i = 0; i < CYCLE_COUNT; i++) {
 		printBoard(board);
 		auto ranges = getRangeOnEachAxis(board);
 		for (int row = std::get<0>(ranges.first) - 1; row <= std::get<0>(ranges.second) + 1; row++) {
 			for (int col = std::get<1>(ranges.first) - 1; col <= std::get<1>(ranges.second) + 1; col++) {
 				for (int depth = std::get<2>(ranges.first) - 1; depth <= std::get<2>(ranges.second) + 1; depth++) {
-					int aliveNeighbors = getNumAdjacentLiveNeighbors(board, row, col, depth);
-					std::tuple<int, int, int> position(row, col, depth);
-					CellState state = getOrDefault(board, DEAD, position);
-					if (aliveNeighbors != 2 && aliveNeighbors != 3) {
-						state = DEAD;
-					} else if (state == DEAD && aliveNeighbors == 3) {
-						state = ALIVE;
-					}
+					for (int w = std::get<3>(ranges.first) - 1; w <= std::get<3>(ranges.second) + 1; w++) {
+						int aliveNeighbors = getNumAdjacentLiveNeighbors(board, row, col, depth, w);
+						Position position(row, col, depth, w);
+						CellState state = getOrDefault(board, DEAD, position);
+						if (aliveNeighbors != 2 && aliveNeighbors != 3) {
+							state = DEAD;
+						} else if (state == DEAD && aliveNeighbors == 3) {
+							state = ALIVE;
+						}
 
-					nextBoard[position] = state;
+						nextBoard[position] = state;
+					}
 				}
 			}
 		}
 		std::swap(nextBoard, board);
 	}
 
-	return std::count_if(board.cbegin(), board.cend(), [](const std::pair<std::tuple<int, int, int>, CellState> &item) {
-		return item.second == ALIVE;
-	});
+	return std::count_if(
+		board.cbegin(), board.cend(), [](const std::pair<Position, CellState> &item) { return item.second == ALIVE; });
 }
 
 int main(int argc, char *argv[]) {
@@ -160,5 +166,5 @@ int main(int argc, char *argv[]) {
 
 	auto input = readInput(argv[1]);
 
-	std::cout << part1(input) << std::endl;
+	std::cout << run(input) << std::endl;
 }
