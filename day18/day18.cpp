@@ -13,6 +13,10 @@
 #include <vector>
 
 enum Operation { ADDITION = '+', MULTIPLICATION = '*' };
+class ExpressionNode;
+using EvaluationStrategy = std::function<double(
+	const ExpressionNode &, const std::unique_ptr<ExpressionNode> &, const std::unique_ptr<ExpressionNode> &,
+	Operation)>;
 
 class ExpressionNode {
  public:
@@ -20,6 +24,7 @@ class ExpressionNode {
 	}
 
 	virtual long evaluate() const = 0;
+	virtual int numChildren() const = 0;
 
 	virtual ~ExpressionNode() {
 	}
@@ -34,16 +39,17 @@ class ValueNode : public ExpressionNode {
 		return n;
 	}
 
+	int numChildren() const {
+		return 1;
+	}
+
  private:
 	long n;
 };
 
 class ExpressionTree : public ExpressionNode {
  public:
-	ExpressionTree() {
-	}
-	ExpressionTree(std::unique_ptr<ExpressionNode> &&left, std::unique_ptr<ExpressionNode> &&right, Operation &&op)
-		: left(std::move(left)), right(std::move(right)), op(std::move(op)) {
+	ExpressionTree(EvaluationStrategy strategy) : strategy(strategy) {
 	}
 
 	void setLeft(std::unique_ptr<ExpressionNode> &&left) {
@@ -52,6 +58,10 @@ class ExpressionTree : public ExpressionNode {
 
 	void setRight(std::unique_ptr<ExpressionNode> &&left) {
 		this->right = std::move(left);
+	}
+
+	int numChildren() const {
+		return 2;
 	}
 
 	void putNextNode(std::unique_ptr<ExpressionNode> &&node) {
@@ -79,23 +89,18 @@ class ExpressionTree : public ExpressionNode {
 			}
 		}
 
-		long leftValue = this->left->evaluate();
-		long rightValue = this->right->evaluate();
-
-		switch (*op) {
-			case ADDITION:
-				return leftValue + rightValue;
-			case MULTIPLICATION:
-				return leftValue * rightValue;
-			default:
-				throw std::invalid_argument("Invalid operation");
+		if (!this->strategy) {
+			throw "AAA";
 		}
+		return this->strategy(*this, this->left, this->right, *(this->op));
 	}
 
  private:
 	std::unique_ptr<ExpressionNode> left;
 	std::unique_ptr<ExpressionNode> right;
 	std::optional<Operation> op;
+	EvaluationStrategy strategy;
+
 	bool canFullyEvaluate() const {
 		return this->left && this->right && this->op;
 	}
@@ -161,7 +166,8 @@ std::optional<std::pair<std::string_view, int>> parseParenthetical(int cursor, c
 	return std::pair<std::string_view, int>(input.substr(startPos + 1, cursor - startPos - 1), startPos);
 }
 
-std::unique_ptr<ExpressionNode> buildTree(const std::string_view input, int depth = 0) {
+std::unique_ptr<ExpressionNode> buildTree(
+	const std::string_view input, const EvaluationStrategy &strategy, int depth = 0) {
 	if (std::count_if(input.cbegin(), input.cend(), [](char c) { return c == ' '; }) == 0) {
 		std::cout << std::string(depth, ' ') << "RIGHT: " << input << std::endl;
 		std::optional<long> value = parseNumber(input);
@@ -172,7 +178,10 @@ std::unique_ptr<ExpressionNode> buildTree(const std::string_view input, int dept
 		return std::make_unique<ValueNode>(*value);
 	}
 
-	ExpressionTree tree;
+	if (!strategy) {
+		throw "AAAA";
+	}
+	ExpressionTree tree(strategy);
 	// This should technically be size_type but I need to be able to go before zero
 	int cursor = input.size() - 1;
 	while (cursor > 0) {
@@ -187,7 +196,7 @@ std::unique_ptr<ExpressionNode> buildTree(const std::string_view input, int dept
 			parseParenthetical(previousSpace - 1, input);
 		if (parentheticalPart) {
 			std::cout << std::string(depth, ' ') << "RIGHT (paren): " << parentheticalPart->first << std::endl;
-			auto parentheticalTree = buildTree(parentheticalPart->first, depth + 1);
+			auto parentheticalTree = buildTree(parentheticalPart->first, strategy, depth + 1);
 			tree.setRight(std::move(parentheticalTree));
 			cursor = parentheticalPart->second - 2;
 			continue;
@@ -199,7 +208,7 @@ std::unique_ptr<ExpressionNode> buildTree(const std::string_view input, int dept
 			tree.setOp(*componentOperation);
 			auto rest = input.substr(0, cursor + 1);
 			std::cout << std::string(depth, ' ') << "LEFT: " << component << std::endl;
-			auto rightTree = buildTree(rest, depth + 1);
+			auto rightTree = buildTree(rest, strategy, depth + 1);
 			tree.setLeft(std::move(rightTree));
 			// Once we have found an operator and the operand to the left of it, we're done
 			break;
@@ -217,11 +226,32 @@ std::unique_ptr<ExpressionNode> buildTree(const std::string_view input, int dept
 	return std::make_unique<ExpressionTree>(std::move(tree));
 }
 
-long part1(const std::vector<std::string> &input) {
-	return std::accumulate(input.cbegin(), input.cend(), 0L, [](long total, const std::string &expression) {
-		auto tree = buildTree(expression);
+long run(const std::vector<std::string> &input, const EvaluationStrategy &strategy) {
+	return std::accumulate(input.cbegin(), input.cend(), 0L, [&strategy](long total, const std::string &expression) {
+		auto tree = buildTree(expression, strategy);
 		return total + tree->evaluate();
 	});
+}
+
+long part1(const std::vector<std::string> &input) {
+	EvaluationStrategy strategy = [](const ExpressionNode &self,
+									 const std::unique_ptr<ExpressionNode> &left,
+									 const std::unique_ptr<ExpressionNode> &right,
+									 Operation op) -> long {
+		long leftValue = left->evaluate();
+		long rightValue = right->evaluate();
+
+		switch (op) {
+			case ADDITION:
+				return leftValue + rightValue;
+			case MULTIPLICATION:
+				return leftValue * rightValue;
+			default:
+				throw std::invalid_argument("Invalid operation");
+		}
+	};
+
+	return run(input, strategy);
 }
 
 int main(int argc, char *argv[]) {
