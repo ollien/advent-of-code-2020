@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 
+constexpr auto RULE_DELIM = ":";
 constexpr auto ALTERNATING_DELIM = " | ";
 class GrammarEntry;
 using MultiGrammarEntry = std::vector<GrammarEntry>;
@@ -97,7 +98,7 @@ MultiGrammarEntry parseSinglePattern(const std::string &rawPattern) {
 std::unordered_multimap<int, MultiGrammarEntry> parseGrammar(const std::vector<std::string> &patterns) {
 	std::unordered_multimap<int, MultiGrammarEntry> grammar;
 	for (const std::string &patternLine : patterns) {
-		auto colonIndex = patternLine.find(":");
+		auto colonIndex = patternLine.find(RULE_DELIM);
 		std::string rawIndex = patternLine.substr(0, colonIndex);
 		int patternIndex = std::stoi(rawIndex);
 		std::vector<std::string> rawAlternations;
@@ -119,41 +120,109 @@ std::unordered_multimap<int, MultiGrammarEntry> parseGrammar(const std::vector<s
 std::string convertToRegularExpression(const std::unordered_multimap<int, MultiGrammarEntry> &grammar, int rule) {
 	std::vector<std::string> expressions;
 	auto ruleIterators = grammar.equal_range(rule);
+	std::vector<std::pair<int, MultiGrammarEntry>> entries(ruleIterators.first, ruleIterators.second);
+	for (const auto &entry : entries) {
+		auto cycleIt = std::find_if(entry.second.cbegin(), entry.second.cend(), [rule](const GrammarEntry &ruleEntry) {
+			return ruleEntry.isLookup() && ruleEntry.getIndex() == rule;
+		});
+
+		if (cycleIt != entry.second.cend()) {
+			entries = std::vector<std::pair<int, MultiGrammarEntry>>{entry};
+			break;
+		}
+	}
 	std::transform(
-		ruleIterators.first,
-		ruleIterators.second,
+		entries.cbegin(),
+		entries.cend(),
 		std::back_inserter(expressions),
-		[&grammar](const std::pair<int, MultiGrammarEntry> &entry) {
+		[&grammar, rule](const std::pair<int, MultiGrammarEntry> &entry) {
 			MultiGrammarEntry alternative = entry.second;
+			std::string prefix;
 			std::string expression;
+			std::string suffixPrefix;
+			std::string suffix;
+			bool isNonRegularCycle = false;
 			for (const GrammarEntry &grammarEntry : alternative) {
-				if (grammarEntry.isLookup()) {
-					expression += convertToRegularExpression(grammar, grammarEntry.getIndex());
-				} else {
+				if (!grammarEntry.isLookup()) {
 					expression += grammarEntry.getValue();
+				} else if (
+					grammarEntry.getIndex() == rule && alternative.back().isLookup() &&
+					rule == alternative.back().getIndex()) {
+					expression = folly::format("(?:{})+?", expression).str();
+				} else if (grammarEntry.getIndex() == rule) {
+					isNonRegularCycle = true;
+					// This grossness will be resolved when using a format string. We want to be able to replace this
+					// with a number later.
+					suffixPrefix = folly::format("((?:{}){{{{{{}}}}}})((?:", expression).str();
+					expression.clear();
+					suffix = "){{{}}})";
+				} else {
+					expression += convertToRegularExpression(grammar, grammarEntry.getIndex());
 				}
 			}
 
-			return expression;
+			if (!isNonRegularCycle) {
+				return expression;
+			} else {
+				std::vector<std::string> fullSuffixElements;
+				for (int i = 1; i < 8; i++) {
+					fullSuffixElements.push_back(
+						folly::format(suffixPrefix, i).str() + expression + folly::format(suffix, i).str());
+				}
+				std::cout << prefix << std::endl;
+
+				return prefix + "(" + folly::join("|", fullSuffixElements) + ")";
+			}
 		});
 
 	if (expressions.size() == 1) {
 		return expressions.at(0);
 	} else {
-		return folly::format("({})", folly::join("|", expressions)).str();
+		return folly::format("(?:{})", folly::join("|", expressions)).str();
 	}
-}
-
-std::regex convertToRegularExpression(const std::unordered_multimap<int, MultiGrammarEntry> &grammar) {
-	auto rawRegularExpression = convertToRegularExpression(grammar, 0);
-	return std::regex(rawRegularExpression);
 }
 
 int part1(const std::vector<std::string> &patterns, const std::vector<std::string> &testStrings) {
 	std::unordered_multimap<int, MultiGrammarEntry> grammar = parseGrammar(patterns);
-	std::regex inputRegex = convertToRegularExpression(grammar);
+	std::regex inputRegex = std::regex(convertToRegularExpression(grammar, 0));
 	return std::count_if(testStrings.cbegin(), testStrings.cend(), [&inputRegex](const std::string &testString) {
-		return std::regex_match(testString, inputRegex);
+		std::smatch matches;
+		if (std::regex_match(testString, matches, inputRegex)) {
+			std::cerr << testString << std::endl;
+			return true;
+		}
+
+		return false;
+	});
+}
+
+int part2(const std::vector<std::string> &patterns, const std::vector<std::string> &testStrings) {
+	std::unordered_multimap<int, MultiGrammarEntry> grammar = parseGrammar(patterns);
+	grammar.erase(8);
+	grammar.erase(11);
+	grammar.emplace(8, MultiGrammarEntry{GrammarEntry(42)});
+	grammar.emplace(8, MultiGrammarEntry{GrammarEntry(42), GrammarEntry(8)});
+	grammar.emplace(11, MultiGrammarEntry{GrammarEntry(42), GrammarEntry(31)});
+	grammar.emplace(11, MultiGrammarEntry{GrammarEntry(42), GrammarEntry(11), GrammarEntry(31)});
+	std::regex inputRegex(convertToRegularExpression(grammar, 0));
+	std::regex rule42Regex(convertToRegularExpression(grammar, 42));
+	std::regex rule31Regex(convertToRegularExpression(grammar, 31));
+	std::cout << "Expressions" << std::endl;
+	std::cout << "0" << std::endl;
+	std::cout << convertToRegularExpression(grammar, 0) << std::endl;
+	std::cout << "42" << std::endl;
+	std::cout << convertToRegularExpression(grammar, 42) << std::endl;
+	std::cout << "31" << std::endl;
+	std::cout << convertToRegularExpression(grammar, 31) << std::endl;
+
+	return std::count_if(testStrings.cbegin(), testStrings.cend(), [&inputRegex](const std::string &testString) {
+		std::smatch matches;
+		if (std::regex_match(testString, matches, inputRegex)) {
+			std::cerr << testString << std::endl;
+			return true;
+		}
+
+		return false;
 	});
 }
 
@@ -166,5 +235,6 @@ int main(int argc, char *argv[]) {
 	auto input = readInput(argv[1]);
 	auto parsedInput = splitInput(input);
 
-	std::cout << part1(parsedInput.first, parsedInput.second) << std::endl;
+	// std::cout << part1(parsedInput.first, parsedInput.second) << std::endl;
+	std::cout << part2(parsedInput.first, parsedInput.second) << std::endl;
 }
