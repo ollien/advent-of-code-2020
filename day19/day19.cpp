@@ -1,3 +1,4 @@
+#include <folly/Format.h>
 #include <folly/String.h>
 
 #include <fstream>
@@ -7,6 +8,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -92,76 +94,66 @@ MultiGrammarEntry parseSinglePattern(const std::string &rawPattern) {
 	return patternComponents;
 }
 
-std::unordered_map<int, AlternatableMultiGrammarEntry> parseGrammar(const std::vector<std::string> &patterns) {
-	std::unordered_map<int, AlternatableMultiGrammarEntry> grammar;
-	std::transform(
-		patterns.cbegin(), patterns.cend(), std::inserter(grammar, grammar.end()), [](const std::string &patternLine) {
-			auto colonIndex = patternLine.find(":");
-			std::string rawIndex = patternLine.substr(0, colonIndex);
-			int patternIndex = std::stoi(rawIndex);
-			std::vector<std::string> rawAlternations;
-			// An extra +1 on the colon index to get rid of the space after the colon
-			folly::split(ALTERNATING_DELIM, patternLine.substr(colonIndex + 2), rawAlternations);
+std::unordered_multimap<int, MultiGrammarEntry> parseGrammar(const std::vector<std::string> &patterns) {
+	std::unordered_multimap<int, MultiGrammarEntry> grammar;
+	for (const std::string &patternLine : patterns) {
+		auto colonIndex = patternLine.find(":");
+		std::string rawIndex = patternLine.substr(0, colonIndex);
+		int patternIndex = std::stoi(rawIndex);
+		std::vector<std::string> rawAlternations;
+		// An extra +1 on the colon index to get rid of the space after the colon
+		folly::split(ALTERNATING_DELIM, patternLine.substr(colonIndex + 2), rawAlternations);
 
-			AlternatableMultiGrammarEntry entries;
-			std::transform(
-				rawAlternations.cbegin(), rawAlternations.cend(), std::back_inserter(entries), parseSinglePattern);
-
-			return std::pair<int, AlternatableMultiGrammarEntry>(patternIndex, entries);
-		});
+		std::transform(
+			rawAlternations.cbegin(),
+			rawAlternations.cend(),
+			std::inserter(grammar, grammar.end()),
+			[patternIndex](const std::string &pattern) {
+				return std::make_pair(patternIndex, parseSinglePattern(pattern));
+			});
+	}
 
 	return grammar;
 }
 
-int matchesHowManyChars(
-	const std::unordered_map<int, AlternatableMultiGrammarEntry> &grammar, const std::string_view toParse, int rule = 0,
-	int depth = 0) {
-	auto indentation = std::string(depth, '|');
-	std::cout << indentation << "Working on " << toParse << std::endl;
-	AlternatableMultiGrammarEntry ruleAlternations = grammar.at(rule);
-	std::optional<std::pair<MultiGrammarEntry, int>> best;
-	for (const MultiGrammarEntry &alternation : ruleAlternations) {
-		int numMatched = 0;
-		int i = 0;
-		for (auto entryIt = alternation.cbegin(); entryIt != alternation.cend(); (++entryIt, i++)) {
-			GrammarEntry entry = *entryIt;
-			int ruleMatchCount;
-			if (entry.isLookup()) {
-				std::cout << indentation << "Checking rule " << entry.getIndex() << std::endl;
-				ruleMatchCount = matchesHowManyChars(grammar, toParse.substr(numMatched), entry.getIndex(), depth + 1);
-			} else {
-				std::cout << indentation << "Checking rule " << entry.getValue() << std::endl;
-				char toMatch = toParse.at(i);
-				char ruleValue = entry.getValue();
-				ruleMatchCount = (toMatch == ruleValue);
+std::string convertToRegularExpression(const std::unordered_multimap<int, MultiGrammarEntry> &grammar, int rule) {
+	std::vector<std::string> expressions;
+	auto ruleIterators = grammar.equal_range(rule);
+	std::transform(
+		ruleIterators.first,
+		ruleIterators.second,
+		std::back_inserter(expressions),
+		[&grammar](const std::pair<int, MultiGrammarEntry> &entry) {
+			MultiGrammarEntry alternative = entry.second;
+			std::string expression;
+			for (const GrammarEntry &grammarEntry : alternative) {
+				if (grammarEntry.isLookup()) {
+					expression += convertToRegularExpression(grammar, grammarEntry.getIndex());
+				} else {
+					expression += grammarEntry.getValue();
+				}
 			}
 
-			std::cout << indentation << "Result: " << numMatched << std::endl;
+			return expression;
+		});
 
-			if (!ruleMatchCount) {
-				break;
-			}
-
-			numMatched += ruleMatchCount;
-		}
-
-		std::cout << indentation << "Full result: " << numMatched << std::endl;
-		if (!best || numMatched > best->second) {
-			best = std::pair<MultiGrammarEntry, int>(alternation, numMatched);
-		}
+	if (expressions.size() == 1) {
+		return expressions.at(0);
+	} else {
+		return folly::format("({})", folly::join("|", expressions)).str();
 	}
+}
 
-	if (!best) {
-		return 0;
-	}
-
-	return best->second;
+std::regex convertToRegularExpression(const std::unordered_multimap<int, MultiGrammarEntry> &grammar) {
+	auto rawRegularExpression = convertToRegularExpression(grammar, 0);
+	return std::regex(rawRegularExpression);
 }
 
 int part1(const std::vector<std::string> &patterns, const std::vector<std::string> &testStrings) {
-	std::unordered_map<int, AlternatableMultiGrammarEntry> grammar = parseGrammar(patterns);
-	return std::count_if(testStrings.cbegin(), testStrings.cend(), [&grammar](const std::string &testString) {
-		return matchesHowManyChars(grammar, testString) == testString.length();
+	std::unordered_multimap<int, MultiGrammarEntry> grammar = parseGrammar(patterns);
+	std::regex inputRegex = convertToRegularExpression(grammar);
+	return std::count_if(testStrings.cbegin(), testStrings.cend(), [&inputRegex](const std::string &testString) {
+		return std::regex_match(testString, inputRegex);
 	});
 }
 
