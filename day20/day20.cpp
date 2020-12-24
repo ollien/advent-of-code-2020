@@ -201,8 +201,11 @@ void printBoard(const std::map<std::pair<int, int>, CameraFrame> &board, int max
 			for (int j = 0; j < maxCol; j++) {
 				auto frame = board.find(std::make_pair(i, j));
 				auto frameRowStr = (frame == board.end() ? emptyFrame : frame->second).getFrame().at(frameRow);
+				std::cout << frameRowStr << " ";
 			}
+			std::cout << std::endl;
 		}
+		std::cout << std::endl;
 	}
 }
 
@@ -248,109 +251,68 @@ bool isBoardFilled(const std::map<std::pair<int, int>, CameraFrame> board, int m
 	return true;
 }
 
+std::optional<CameraFrame> findPossibleFrame(
+	const std::vector<CameraFrame> &availableFrames, std::function<bool(const CameraFrame &)> findFrame) {
+	auto result = std::find_if(availableFrames.cbegin(), availableFrames.cend(), findFrame);
+	if (result == availableFrames.cend()) {
+		return std::nullopt;
+	}
+
+	return *result;
+}
+
 std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement(
-	const std::map<std::pair<int, int>, CameraFrame> &board,
-	const std::vector<CameraFrame> &availableFrames,
-	std::map<std::pair<int, int>, int> &visited,
-	int row,
-	int col,
-	int maxRow,
-	int maxCol,
-	int depth = 0) {
-	auto performRecursion = [&board, maxRow, maxCol, depth, &visited](
-								const CameraFrame &cursor,
-								const std::vector<CameraFrame> &availableFrames,
-								const std::string &edge1,
-								const std::function<std::string(const CameraFrame &)> getEdge2,
-								int nextRow,
-								int nextCol) -> std::optional<std::map<std::pair<int, int>, CameraFrame>> {
-		for (const CameraFrame &candidateFrame : availableFrames) {
-			auto operations = getPossibleTransforms(candidateFrame);
-			std::vector<CameraFrame> nextAvailableFrames(availableFrames);
-			nextAvailableFrames.erase(
-				std::find(nextAvailableFrames.cbegin(), nextAvailableFrames.cend(), candidateFrame));
-			for (const CameraFrame &operatedFrame : operations) {
-				auto edge2 = getEdge2(operatedFrame);
-				if (edge1 == edge2) {
-					std::map<std::pair<int, int>, CameraFrame> nextBoard(board);
-					nextBoard.emplace(std::make_pair(nextRow, nextCol), operatedFrame);
-					return findLinedUpArrangement(
-						nextBoard, nextAvailableFrames, visited, nextRow, nextCol, maxRow, maxCol, depth + 1);
+	const CameraFrame &startingFrame, const std::vector<CameraFrame> &frames, int maxRow, int maxCol) {
+	std::map<std::pair<int, int>, CameraFrame> board;
+	std::vector<CameraFrame> availableFrames(frames);
+	board.emplace(std::make_pair(0, 0), startingFrame);
+	for (int row = 0; row < maxRow; row++) {
+		for (int col = 0; col < maxCol; col++) {
+			if (row == 0 && col == 0) {
+				continue;
+			}
+
+			bool found = false;
+			for (const CameraFrame &currentFrame : availableFrames) {
+				auto transformed = getPossibleTransforms(currentFrame);
+				for (const CameraFrame &currentTransformedFrame : transformed) {
+					std::optional<CameraFrame> matchingFrame;
+					if (col == 0) {
+						CameraFrame &aboveFrame = board.at(std::make_pair(row - 1, col));
+						matchingFrame = findPossibleFrame(transformed, [aboveFrame](const CameraFrame &frame) {
+							return aboveFrame.getBottomEdge() == frame.getTopEdge();
+						});
+					} else {
+						CameraFrame &leftFrame = board.at(std::make_pair(row, col - 1));
+						matchingFrame = findPossibleFrame(transformed, [leftFrame](const CameraFrame &frame) {
+							return leftFrame.getRightEdge() == frame.getLeftEdge();
+						});
+					}
+
+					if (matchingFrame) {
+						found = true;
+						board.emplace(std::make_pair(row, col), *matchingFrame);
+						availableFrames.erase(
+							std::remove(availableFrames.begin(), availableFrames.end(), currentFrame));
+						// printBoard(board, maxRow, maxCol);
+						break;
+					}
+				}
+				if (found) {
+					break;
 				}
 			}
+			if (!found) {
+				return std::nullopt;
+			}
 		}
+	}
 
-		return std::nullopt;
-	};
-
-	const CameraFrame &cursor = board.at(std::make_pair(row, col));
-	// If we've already visited this configuration, and backtracked, we're done.
-	auto visitedCheck = visited.find(std::make_pair(row, col));
-	if (isBoardFilled(board, maxRow, maxCol)) {
-		return board;
-	} else if (availableFrames.empty() || (visitedCheck != visited.end() && visitedCheck->second == cursor.getID())) {
+	if (!isBoardFilled(board, maxRow, maxCol)) {
 		return std::nullopt;
 	}
-	visited.emplace(std::make_pair(row, col), cursor.getID());
-	// Any operation involving the top edge cannot occur if this tile is already at the top
-	if (row > 0 && board.find(std::make_pair(row - 1, col)) == board.end()) {
-		auto result = performRecursion(
-			cursor,
-			availableFrames,
-			cursor.getTopEdge(),
-			[](const CameraFrame &candidate) { return candidate.getBottomEdge(); },
-			row - 1,
-			col);
 
-		if (result) {
-			return *result;
-		}
-	}
-
-	if (row < maxRow - 1 && board.find(std::make_pair(row + 1, col)) == board.end()) {
-		auto result = performRecursion(
-			cursor,
-			availableFrames,
-			cursor.getBottomEdge(),
-			[](const CameraFrame &candidate) { return candidate.getTopEdge(); },
-			row + 1,
-			col);
-
-		if (result) {
-			return *result;
-		}
-	}
-	// Any operation involving the left edge cannot occur if this tile is already at the left
-	if (col > 0 && board.find(std::make_pair(row, col - 1)) == board.end()) {
-		auto result = performRecursion(
-			cursor,
-			availableFrames,
-			cursor.getLeftEdge(),
-			[](const CameraFrame &candidate) { return candidate.getRightEdge(); },
-			row,
-			col - 1);
-
-		if (result) {
-			return *result;
-		}
-	}
-
-	// Any operation involving the right edge cannot occur if the tile is at the right
-	if (col < maxCol - 1 && board.find(std::make_pair(row, col + 1)) == board.end()) {
-		auto result = performRecursion(
-			cursor,
-			availableFrames,
-			cursor.getRightEdge(),
-			[](const CameraFrame &candidate) { return candidate.getLeftEdge(); },
-			row,
-			col + 1);
-
-		if (result) {
-			return *result;
-		}
-	}
-
-	return std::nullopt;
+	return board;
 }
 
 long part1(const std::vector<CameraFrame> &frames) {
@@ -358,12 +320,10 @@ long part1(const std::vector<CameraFrame> &frames) {
 	for (const CameraFrame &frame : frames) {
 		std::vector<CameraFrame> availableFrames(frames);
 		availableFrames.erase(std::remove(availableFrames.begin(), availableFrames.end(), frame));
-		auto operations = getPossibleTransforms(frame);
-		for (const CameraFrame &operatedFrame : operations) {
-			std::map<std::pair<int, int>, CameraFrame> board;
-			std::map<std::pair<int, int>, int> visited;
-			board.emplace(std::make_pair(0, 0), operatedFrame);
-			auto res = findLinedUpArrangement(board, availableFrames, visited, 0, 0, boardSize, boardSize);
+
+		auto transformed = getPossibleTransforms(frame);
+		for (const CameraFrame &transformedFrame : transformed) {
+			auto res = findLinedUpArrangement(transformedFrame, availableFrames, boardSize, boardSize);
 			if (res) {
 				return 1L * res->at(std::make_pair(0, 0)).getID() * res->at(std::make_pair(0, boardSize - 1)).getID() *
 					   res->at(std::make_pair(boardSize - 1, 0)).getID() *
