@@ -8,6 +8,7 @@
 #include <optional>
 #include <regex>
 #include <string>
+#include <utility>
 #include <vector>
 
 constexpr auto TILE_ID_PATTERN = R"(Tile (\d+):)";
@@ -15,6 +16,9 @@ constexpr int NUM_CAMERA_LINES = 10;
 // Plus one for the ID line, plus one for the newline after
 constexpr int NUM_INPUT_BLOCK_LINES = NUM_CAMERA_LINES + 2;
 
+/**
+ * Represents a single frame captured by the camera
+ */
 class CameraFrame {
  public:
 	CameraFrame(int id, const std::vector<std::string> &frame) : id(id), frame(frame) {
@@ -24,18 +28,31 @@ class CameraFrame {
 		return this->id;
 	}
 
+	/**
+	 * Get the contents of this frame
+	 * @return const std::vector<std::string>& The frame contents
+	 */
 	const std::vector<std::string> &getFrame() const {
 		return this->frame;
 	}
 
+	/**
+	 * @return const std::string The top edge of this frame
+	 */
 	const std::string getTopEdge() const {
 		return this->frame.front();
 	}
 
+	/**
+	 * @return const std::string The bottom edge of this frame
+	 */
 	const std::string getBottomEdge() const {
 		return this->frame.back();
 	}
 
+	/**
+	 * @return const std::string The left edge of this frame
+	 */
 	const std::string getLeftEdge() const {
 		std::string edge;
 		std::transform(
@@ -47,6 +64,9 @@ class CameraFrame {
 		return edge;
 	}
 
+	/**
+	 * @return const std::string The right edge of this frame
+	 */
 	const std::string getRightEdge() const {
 		std::string edge;
 		std::transform(
@@ -66,16 +86,25 @@ class CameraFrame {
 		return !(*this == frame);
 	}
 
+	/**
+	 * Flip this frame along the horizontal axis
+	 */
 	void flipFrameVertically() {
 		std::reverse(this->frame.begin(), this->frame.end());
 	}
 
+	/**
+	 * Flip this frame along the vertical axis
+	 */
 	void flipFrameHorizontally() {
 		std::for_each(this->frame.begin(), this->frame.end(), [](std::string &frameLine) {
 			std::reverse(frameLine.begin(), frameLine.end());
 		});
 	}
 
+	/**
+	 * Rotate this frame 90 degrees
+	 */
 	void rotateFrame90Deg() {
 		// This algorithm works by rotating each "ring" of the frame 90 degrees
 		// Consider the following 5x5 frame
@@ -122,11 +151,17 @@ class CameraFrame {
 		this->frame = std::move(rotatedFrame);
 	}
 
+	/**
+	 * Rotate this frame 180 degrees
+	 */
 	void rotateFrame180Deg() {
 		this->rotateFrame90Deg();
 		this->rotateFrame90Deg();
 	}
 
+	/**
+	 * Rotate this frame 270 degrees
+	 */
 	void rotateFrame270Deg() {
 		this->rotateFrame180Deg();
 		this->rotateFrame90Deg();
@@ -135,6 +170,106 @@ class CameraFrame {
  private:
 	int id;
 	std::vector<std::string> frame;
+};
+
+/**
+ * Generates all of the possible transforms for a given camera frame.
+ */
+class TransformGenerator {
+ public:
+	class const_iterator {
+	 public:
+		using difference_type = int;
+		using value_type = std::function<CameraFrame()>;
+		using pointer = const value_type *;
+		using reference = const value_type &;
+		using iterator_category = std::input_iterator_tag;
+
+		const_iterator &operator++() {
+			++this->baseIterator;
+			return *this;
+		}
+
+		const_iterator operator++(int) {
+			const_iterator res = *this;
+			++(*this);
+			return res;
+		}
+
+		bool operator==(const const_iterator &other) {
+			return this->baseIterator == other.baseIterator;
+		}
+
+		bool operator!=(const const_iterator &other) {
+			return !(*this == other);
+		}
+
+		const value_type operator*() {
+			return *(this->baseIterator);
+		}
+
+	 private:
+		friend TransformGenerator;
+		const_iterator(const TransformGenerator &container)
+			: container(container), baseIterator(container.operationList.cbegin()) {
+		}
+		const_iterator(const TransformGenerator &container, const std::vector<value_type>::const_iterator &baseIterator)
+			: container(container), baseIterator(baseIterator) {
+		}
+
+		const TransformGenerator &container;
+		std::vector<value_type>::const_iterator baseIterator;
+	};
+
+	TransformGenerator(const CameraFrame &frame)
+		: frame(frame),
+		  operationList{
+			  [frame]() { return frame; },
+			  [frame = frame]() mutable {
+				  frame.rotateFrame90Deg();
+				  return frame;
+			  },
+			  [frame = frame]() mutable {
+				  frame.rotateFrame180Deg();
+				  return frame;
+			  },
+			  [frame = frame]() mutable {
+				  frame.rotateFrame270Deg();
+				  return frame;
+			  },
+			  [frame = frame]() mutable {
+				  frame.flipFrameVertically();
+				  return frame;
+			  },
+			  [frame = frame]() mutable {
+				  frame.flipFrameHorizontally();
+				  return frame;
+			  },
+			  [frame = frame]() mutable {
+				  frame.flipFrameHorizontally();
+				  frame.rotateFrame90Deg();
+				  return frame;
+			  },
+			  // We don't need one for rotating 180 after flipping, as it's equivalent to flipping vertically
+			  [frame = frame]() mutable {
+				  frame.flipFrameHorizontally();
+				  frame.rotateFrame270Deg();
+				  return frame;
+			  },
+		  } {
+	}
+
+	const_iterator cbegin() const {
+		return const_iterator(*this);
+	}
+
+	const_iterator cend() const {
+		return const_iterator(*this, this->operationList.cend());
+	}
+
+ private:
+	CameraFrame frame;
+	std::vector<std::function<CameraFrame()>> operationList;
 };
 
 std::vector<std::string> readInput(const std::string &filename) {
@@ -148,6 +283,11 @@ std::vector<std::string> readInput(const std::string &filename) {
 	return input;
 }
 
+/**
+ * Get the frame ID from an input line containing one
+ * @param line The frame ID line
+ * @return int The frame ID
+ */
 int getFrameIDFromIDLine(const std::string &line) {
 	std::regex pattern(TILE_ID_PATTERN);
 	std::smatch matches;
@@ -158,6 +298,11 @@ int getFrameIDFromIDLine(const std::string &line) {
 	return std::stoi(matches[1]);
 }
 
+/**
+ * Parse the puzzle input
+ * @param input The puzzle input
+ * @return std::vector<CameraFrame> The frames from the camera input
+ */
 std::vector<CameraFrame> parseInput(const std::vector<std::string> &input) {
 	int i = 0;
 	std::vector<CameraFrame> cameraFrames;
@@ -192,6 +337,12 @@ std::ostream &operator<<(std::ostream &os, const CameraFrame &frame) {
 	return os;
 }
 
+/**
+ * Debugging method to print the entire board
+ * @param board The board
+ * @param maxRow The maximum row in the board
+ * @param maxCol The maximum column in the board
+ */
 void printBoard(const std::map<std::pair<int, int>, CameraFrame> &board, int maxRow, int maxCol) {
 	CameraFrame emptyFrame(0, std::vector<std::string>(NUM_CAMERA_LINES, std::string(NUM_CAMERA_LINES, ' ')));
 	for (int i = 0; i < maxRow; i++) {
@@ -209,36 +360,14 @@ void printBoard(const std::map<std::pair<int, int>, CameraFrame> &board, int max
 	}
 }
 
-std::vector<CameraFrame> getPossibleTransforms(const CameraFrame &frame) {
-	CameraFrame identity(frame);
-	CameraFrame rotated90Deg(frame);
-	rotated90Deg.rotateFrame90Deg();
-	CameraFrame rotated180Deg(frame);
-	rotated180Deg.rotateFrame180Deg();
-	CameraFrame rotated270Deg(frame);
-	rotated270Deg.rotateFrame270Deg();
-	CameraFrame flippedVertically(frame);
-	flippedVertically.flipFrameVertically();
-	CameraFrame flippedHorizontally(frame);
-	flippedHorizontally.flipFrameHorizontally();
-	CameraFrame flippedAndRotated90(flippedHorizontally);
-	flippedAndRotated90.rotateFrame90Deg();
-	// We don't need flip and rotate 180 because it is equivalent to flipVertically
-	CameraFrame flippedAndRotated270(flippedHorizontally);
-	flippedAndRotated270.rotateFrame270Deg();
-	std::vector<CameraFrame> operations{
-		identity,
-		rotated90Deg,
-		rotated180Deg,
-		rotated270Deg,
-		flippedVertically,
-		flippedHorizontally,
-		flippedAndRotated90,
-		flippedAndRotated270};
-
-	return operations;
-}
-
+/**
+ * Check if the board has all tiles filled
+ * @param board The board
+ * @param maxRow The maximum row of the board
+ * @param maxCol The maximum column of the board
+ * @return true If the board is filled
+ * @return false If the board is not filled
+ */
 bool isBoardFilled(const std::map<std::pair<int, int>, CameraFrame> board, int maxRow, int maxCol) {
 	for (int i = 0; i < maxRow; i++) {
 		for (int j = 0; j < maxCol; j++) {
@@ -251,16 +380,34 @@ bool isBoardFilled(const std::map<std::pair<int, int>, CameraFrame> board, int m
 	return true;
 }
 
+/**
+ * Find a possible matching frame for this frame
+ * @param frameToMatch The frame to check
+ * @param frameMatches A function to check if a given frame matches this one
+ * @return std::optional<CameraFrame> The matching frame, if ti exists
+ */
 std::optional<CameraFrame> findPossibleFrame(
-	const std::vector<CameraFrame> &availableFrames, std::function<bool(const CameraFrame &)> findFrame) {
-	auto result = std::find_if(availableFrames.cbegin(), availableFrames.cend(), findFrame);
-	if (result == availableFrames.cend()) {
+	const CameraFrame &frameToMatch, std::function<bool(const CameraFrame &)> frameMatches) {
+	auto transformations = TransformGenerator(frameToMatch);
+	auto result = std::find_if(transformations.cbegin(), transformations.cend(), [frameMatches](auto transformation) {
+		CameraFrame transformedFrame = transformation();
+		return frameMatches(transformedFrame);
+	});
+	if (result == transformations.cend()) {
 		return std::nullopt;
 	}
 
-	return *result;
+	return (*result)();
 }
 
+/**
+ * Find a board that correctly lines everything up
+ * @param startingFrame The frame to start with
+ * @param frames All the other frames available for use
+ * @param maxRow The maximum row size
+ * @param maxCol The maximum column size
+ * @return std::optional<std::map<std::pair<int, int>, CameraFrame>> The board that solves part 1
+ */
 std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement(
 	const CameraFrame &startingFrame, const std::vector<CameraFrame> &frames, int maxRow, int maxCol) {
 	std::map<std::pair<int, int>, CameraFrame> board;
@@ -274,31 +421,24 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 
 			bool found = false;
 			for (const CameraFrame &currentFrame : availableFrames) {
-				auto transformed = getPossibleTransforms(currentFrame);
-				for (const CameraFrame &currentTransformedFrame : transformed) {
-					std::optional<CameraFrame> matchingFrame;
-					if (col == 0) {
-						CameraFrame &aboveFrame = board.at(std::make_pair(row - 1, col));
-						matchingFrame = findPossibleFrame(transformed, [aboveFrame](const CameraFrame &frame) {
-							return aboveFrame.getBottomEdge() == frame.getTopEdge();
-						});
-					} else {
-						CameraFrame &leftFrame = board.at(std::make_pair(row, col - 1));
-						matchingFrame = findPossibleFrame(transformed, [leftFrame](const CameraFrame &frame) {
-							return leftFrame.getRightEdge() == frame.getLeftEdge();
-						});
-					}
-
-					if (matchingFrame) {
-						found = true;
-						board.emplace(std::make_pair(row, col), *matchingFrame);
-						availableFrames.erase(
-							std::remove(availableFrames.begin(), availableFrames.end(), currentFrame));
-						// printBoard(board, maxRow, maxCol);
-						break;
-					}
+				std::optional<CameraFrame> matchingFrame;
+				if (col == 0) {
+					CameraFrame &aboveFrame = board.at(std::make_pair(row - 1, col));
+					matchingFrame = findPossibleFrame(currentFrame, [aboveFrame](const CameraFrame &frame) {
+						return aboveFrame.getBottomEdge() == frame.getTopEdge();
+					});
+				} else {
+					CameraFrame &leftFrame = board.at(std::make_pair(row, col - 1));
+					matchingFrame = findPossibleFrame(currentFrame, [leftFrame](const CameraFrame &frame) {
+						return leftFrame.getRightEdge() == frame.getLeftEdge();
+					});
 				}
-				if (found) {
+
+				if (matchingFrame) {
+					found = true;
+					board.emplace(std::make_pair(row, col), *matchingFrame);
+					availableFrames.erase(std::remove(availableFrames.begin(), availableFrames.end(), currentFrame));
+					// printBoard(board, maxRow, maxCol);
 					break;
 				}
 			}
@@ -321,8 +461,10 @@ long part1(const std::vector<CameraFrame> &frames) {
 		std::vector<CameraFrame> availableFrames(frames);
 		availableFrames.erase(std::remove(availableFrames.begin(), availableFrames.end(), frame));
 
-		auto transformed = getPossibleTransforms(frame);
-		for (const CameraFrame &transformedFrame : transformed) {
+		const TransformGenerator transforms(frame);
+		for (auto it = transforms.cbegin(); it != transforms.cend(); ++it) {
+			auto transformation = *it;
+			CameraFrame transformedFrame = transformation();
 			auto res = findLinedUpArrangement(transformedFrame, availableFrames, boardSize, boardSize);
 			if (res) {
 				return 1L * res->at(std::make_pair(0, 0)).getID() * res->at(std::make_pair(0, boardSize - 1)).getID() *
