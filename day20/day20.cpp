@@ -1,3 +1,4 @@
+#include <cmath>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -200,11 +201,8 @@ void printBoard(const std::map<std::pair<int, int>, CameraFrame> &board, int max
 			for (int j = 0; j < maxCol; j++) {
 				auto frame = board.find(std::make_pair(i, j));
 				auto frameRowStr = (frame == board.end() ? emptyFrame : frame->second).getFrame().at(frameRow);
-				std::cout << frameRowStr << " ";
 			}
-			std::cout << std::endl;
 		}
-		std::cout << std::endl;
 	}
 }
 
@@ -259,7 +257,6 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 	int maxRow,
 	int maxCol,
 	int depth = 0) {
-	// printBoard(board, maxRow, maxCol);
 	auto performRecursion = [&board, maxRow, maxCol, depth, &visited](
 								const CameraFrame &cursor,
 								const std::vector<CameraFrame> &availableFrames,
@@ -267,32 +264,18 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 								const std::function<std::string(const CameraFrame &)> getEdge2,
 								int nextRow,
 								int nextCol) -> std::optional<std::map<std::pair<int, int>, CameraFrame>> {
-		// std::cout << edge1 << " " << edge2 << std::endl;
-		// std::string reversedEdge(edge2);
-		// std::reverse(reversedEdge.begin(), rversedEdge.end());
 		for (const CameraFrame &candidateFrame : availableFrames) {
 			auto operations = getPossibleTransforms(candidateFrame);
-			// if (frame == cursor) {
-			// 	continue;
-			// }
-
 			std::vector<CameraFrame> nextAvailableFrames(availableFrames);
 			nextAvailableFrames.erase(
 				std::find(nextAvailableFrames.cbegin(), nextAvailableFrames.cend(), candidateFrame));
 			for (const CameraFrame &operatedFrame : operations) {
 				auto edge2 = getEdge2(operatedFrame);
 				if (edge1 == edge2) {
-					// std::cout << "Match!" << std::endl << std::endl;
 					std::map<std::pair<int, int>, CameraFrame> nextBoard(board);
 					nextBoard.emplace(std::make_pair(nextRow, nextCol), operatedFrame);
-					auto filled = findLinedUpArrangement(
+					return findLinedUpArrangement(
 						nextBoard, nextAvailableFrames, visited, nextRow, nextCol, maxRow, maxCol, depth + 1);
-					// for (auto pair : *filled) {
-					// std::cout << pair.first.first << ", " << pair.first.second << " ";
-					// }
-					// std::cout << std::endl;
-					return filled;
-					// std::cout << "Throwing it away" << std::endl;
 				}
 			}
 		}
@@ -300,10 +283,8 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 		return std::nullopt;
 	};
 
-	// std::cout << availableFrames.size() << std::endl;
-	// std::cout << board.size() << std::endl;
-	// std::cout << row << " " << col << "; max of " << maxRow << " " << maxCol << std::endl;
 	const CameraFrame &cursor = board.at(std::make_pair(row, col));
+	// If we've already visited this configuration, and backtracked, we're done.
 	auto visitedCheck = visited.find(std::make_pair(row, col));
 	if (isBoardFilled(board, maxRow, maxCol)) {
 		return board;
@@ -311,11 +292,8 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 		return std::nullopt;
 	}
 	visited.emplace(std::make_pair(row, col), cursor.getID());
-	// std::cout << "depth=" << depth << " "
-	// 		  << "size=" << nextAvailableFrames.size() << std::endl;
 	// Any operation involving the top edge cannot occur if this tile is already at the top
 	if (row > 0 && board.find(std::make_pair(row - 1, col)) == board.end()) {
-		// std::cout << "row > 0" << std::endl;
 		auto result = performRecursion(
 			cursor,
 			availableFrames,
@@ -330,7 +308,6 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 	}
 
 	if (row < maxRow - 1 && board.find(std::make_pair(row + 1, col)) == board.end()) {
-		// std::cout << "row < maxRow" << std::endl;
 		auto result = performRecursion(
 			cursor,
 			availableFrames,
@@ -345,7 +322,6 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 	}
 	// Any operation involving the left edge cannot occur if this tile is already at the left
 	if (col > 0 && board.find(std::make_pair(row, col - 1)) == board.end()) {
-		// std::cout << "col > 0" << std::endl;
 		auto result = performRecursion(
 			cursor,
 			availableFrames,
@@ -361,7 +337,6 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 
 	// Any operation involving the right edge cannot occur if the tile is at the right
 	if (col < maxCol - 1 && board.find(std::make_pair(row, col + 1)) == board.end()) {
-		// std::cout << "col < maxCol" << std::endl;
 		auto result = performRecursion(
 			cursor,
 			availableFrames,
@@ -379,35 +354,25 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 }
 
 long part1(const std::vector<CameraFrame> &frames) {
-	// TODO: This should not always be 0,0, but I'm doing it so I can test this method.
-	for (int i = 0; i < frames.size(); i++) {
-		// std::cout << "WORKING ON FRAME " << frame.getID() << std::endl;
+	int boardSize = sqrt(frames.size());
+	for (const CameraFrame &frame : frames) {
 		std::vector<CameraFrame> availableFrames(frames);
-		const CameraFrame &frame = frames.at(i);
 		availableFrames.erase(std::remove(availableFrames.begin(), availableFrames.end(), frame));
 		auto operations = getPossibleTransforms(frame);
-		for (int j = 0; j < operations.size(); j++) {
-			std::map<std::pair<int, int>, int> visited;
-			const CameraFrame &operatedFrame = operations.at(j);
-			std::cout << i << " " << j << std::endl;
+		for (const CameraFrame &operatedFrame : operations) {
 			std::map<std::pair<int, int>, CameraFrame> board;
+			std::map<std::pair<int, int>, int> visited;
 			board.emplace(std::make_pair(0, 0), operatedFrame);
-			// TODO: This 3,3 should not be hardcoded
-			auto res = findLinedUpArrangement(board, availableFrames, visited, 0, 0, 12, 12);
+			auto res = findLinedUpArrangement(board, availableFrames, visited, 0, 0, boardSize, boardSize);
 			if (res) {
-				std::cout << res->at(std::make_pair(0, 0)).getID() << " " << res->at(std::make_pair(0, 11)).getID()
-						  << " " << res->at(std::make_pair(11, 0)).getID() << " "
-						  << res->at(std::make_pair(11, 11)).getID() << std::endl;
-				;
-				return 1L * res->at(std::make_pair(0, 0)).getID() * res->at(std::make_pair(0, 11)).getID() *
-					   res->at(std::make_pair(11, 0)).getID() * res->at(std::make_pair(11, 11)).getID();
+				return 1L * res->at(std::make_pair(0, 0)).getID() * res->at(std::make_pair(0, boardSize - 1)).getID() *
+					   res->at(std::make_pair(boardSize - 1, 0)).getID() *
+					   res->at(std::make_pair(boardSize - 1, boardSize - 1)).getID();
 			}
-			std::cout << "Finishing iteration of transformation" << std::endl;
 		}
-		std::cout << "Finishing iteration" << std::endl;
 	}
 
-	return 0;
+	throw std::invalid_argument("No solution for input");
 }
 
 int main(int argc, char *argv[]) {
@@ -418,33 +383,5 @@ int main(int argc, char *argv[]) {
 
 	auto input = readInput(argv[1]);
 	auto parsedInput = parseInput(input);
-	std::cout << "Raw Frame" << std::endl;
-	std::cout << parsedInput.at(0) << std::endl;
-
-	std::cout << "Flipped Vertically" << std::endl;
-	CameraFrame flippedVertically(parsedInput.at(0));
-	flippedVertically.flipFrameVertically();
-	std::cout << flippedVertically << std::endl;
-
-	std::cout << "Flipped Horizontally" << std::endl;
-	CameraFrame flippedHorizontally(parsedInput.at(0));
-	flippedHorizontally.flipFrameHorizontally();
-	std::cout << flippedHorizontally << std::endl;
-
-	std::cout << "Rotated 90 deg" << std::endl;
-	CameraFrame rotated(parsedInput.at(0));
-	rotated.rotateFrame90Deg();
-	std::cout << rotated << std::endl;
-
-	std::cout << "Rotated 180 deg" << std::endl;
-	CameraFrame rotated1(parsedInput.at(0));
-	rotated1.rotateFrame180Deg();
-	std::cout << rotated1 << std::endl;
-
-	std::cout << "Rotated 270 deg" << std::endl;
-	CameraFrame rotated2(parsedInput.at(0));
-	rotated2.rotateFrame270Deg();
-	std::cout << rotated2 << std::endl;
-
 	std::cout << part1(parsedInput) << std::endl;
 }
