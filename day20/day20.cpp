@@ -5,12 +5,10 @@
 #include <functional>
 #include <iostream>
 #include <map>
-#include <memory>
 #include <numeric>
 #include <optional>
 #include <regex>
 #include <string>
-#include <utility>
 #include <vector>
 
 constexpr auto TILE_ID_PATTERN = R"(Tile (\d+):)";
@@ -206,7 +204,7 @@ class TransformGenerator {
 	class const_iterator {
 	 public:
 		using difference_type = int;
-		using value_type = std::function<CameraFrame()>;
+		using value_type = CameraFrame;
 		using pointer = const value_type *;
 		using reference = const value_type &;
 		using iterator_category = std::input_iterator_tag;
@@ -231,7 +229,8 @@ class TransformGenerator {
 		}
 
 		const value_type operator*() {
-			return *(this->baseIterator);
+			auto transform = *(this->baseIterator);
+			return transform();
 		}
 
 	 private:
@@ -239,12 +238,12 @@ class TransformGenerator {
 		const_iterator(const TransformGenerator &container)
 			: container(container), baseIterator(container.operationList.cbegin()) {
 		}
-		const_iterator(const TransformGenerator &container, const std::vector<value_type>::const_iterator &baseIterator)
+		const_iterator(const TransformGenerator &container, const std::vector<std::function<value_type()>>::const_iterator &baseIterator)
 			: container(container), baseIterator(baseIterator) {
 		}
 
 		const TransformGenerator &container;
-		std::vector<value_type>::const_iterator baseIterator;
+		std::vector<std::function<value_type()>>::const_iterator baseIterator;
 	};
 
 	TransformGenerator(const CameraFrame &frame)
@@ -415,15 +414,14 @@ bool isBoardFilled(const std::map<std::pair<int, int>, CameraFrame> board, int m
 std::optional<CameraFrame> findPossibleFrame(
 	const CameraFrame &frameToMatch, std::function<bool(const CameraFrame &)> frameMatches) {
 	auto transformations = TransformGenerator(frameToMatch);
-	auto result = std::find_if(transformations.cbegin(), transformations.cend(), [frameMatches](auto transformation) {
-		CameraFrame transformedFrame = transformation();
+	auto result = std::find_if(transformations.cbegin(), transformations.cend(), [frameMatches](CameraFrame transformedFrame) {
 		return frameMatches(transformedFrame);
 	});
 	if (result == transformations.cend()) {
 		return std::nullopt;
 	}
 
-	return (*result)();
+	return *result;
 }
 
 /**
@@ -502,8 +500,7 @@ std::map<std::pair<int, int>, CameraFrame> findLinedUpArrangement(const std::vec
 
 		const TransformGenerator transforms(frame);
 		for (auto it = transforms.cbegin(); it != transforms.cend(); ++it) {
-			auto transformation = *it;
-			CameraFrame transformedFrame = transformation();
+			CameraFrame transformedFrame = *it;
 			auto res = findLinedUpArrangement(transformedFrame, availableFrames, boardSize, boardSize);
 			if (res) {
 				return *res;
@@ -618,7 +615,7 @@ long part2(const std::map<std::pair<int, int>, CameraFrame> &rawBoard, int board
 
 	auto transforms = TransformGenerator(fullBoardFrame);
 	for (auto it = transforms.cbegin(); it != transforms.cend(); it++) {
-		auto transformedFrame = (*it)();
+		auto transformedFrame = *it;
 		int totalMonsterChars = 0;
 		for (int i = 0; i < fullBoard.size() - monsterDimensions.first; i++) {
 			for (int j = 0; j < fullBoard.at(0).size() - monsterDimensions.second; j++) {
