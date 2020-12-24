@@ -182,7 +182,7 @@ class CameraFrame {
 	/**
 	 * Remove the border of this frame
 	 */
-	void removeBorder() {
+	void removeFrameBorder() {
 		std::vector<std::string> outFrame;
 		std::transform(
 			this->frame.cbegin() + 1,
@@ -514,14 +514,11 @@ std::map<std::pair<int, int>, CameraFrame> findLinedUpArrangement(const std::vec
 	throw std::invalid_argument("No solution for input");
 }
 
-long part1(const std::vector<CameraFrame> &frames) {
-	int boardSize = calculateBoardSize(frames);
-	auto board = findLinedUpArrangement(frames);
-	return 1L * board.at(std::make_pair(0, 0)).getID() * board.at(std::make_pair(0, boardSize - 1)).getID() *
-		   board.at(std::make_pair(boardSize - 1, 0)).getID() *
-		   board.at(std::make_pair(boardSize - 1, boardSize - 1)).getID();
-}
-
+/**
+ * Get the size of a monster, given a strong representing one.
+ * @param monster The monster string
+ * @return std::pair<int, int> The height and width of the monster, as a pair.
+ */
 std::pair<int, int> getMonsterDimensions(const std::string &monster) {
 	int height = std::count(monster.cbegin(), monster.cend(), '\n') + 1;
 	std::vector<std::string> lines;
@@ -536,11 +533,20 @@ std::pair<int, int> getMonsterDimensions(const std::string &monster) {
 	return std::make_pair(height, width);
 }
 
+/**
+ * Join a board's frames together into one big board.
+ * @param board The board to join.
+ * @param maxRow The highest row in the board
+ * @param maxCol The highest col in the board
+ * @return std::vector<std::string> The joined board
+ */
 std::vector<std::string> joinFullBoard(
 	const std::map<std::pair<int, int>, CameraFrame> &board, int maxRow, int maxCol) {
 	std::vector<std::string> outBoard;
+	// Get an arbitrary frame - doesn't matter what it is, we just need a size.
+	auto firstFrame = *board.begin();
 	for (int i = 0; i < maxRow; i++) {
-		for (int frameRow = 0; frameRow < NUM_CAMERA_LINES - 2; frameRow++) {
+		for (int frameRow = 0; frameRow < firstFrame.second.getFrame().size(); frameRow++) {
 			outBoard.push_back("");
 			std::string &outRow = outBoard.back();
 			for (int j = 0; j < maxCol; j++) {
@@ -554,26 +560,24 @@ std::vector<std::string> joinFullBoard(
 	return outBoard;
 }
 
+/**
+ * Get the number of characters that contain a monster, within the monster dimensions, starting at (row, col). This only scans for a single monster.
+ * @param frame The frame to scan
+ * @param row The row to start at
+ * @param col The col to start at
+ * @return int The number of monster characters in this area.
+ */
 int getNumMonsterChars(const CameraFrame &frame, int row, int col) {
 	std::pair<int, int> monsterDimensions = getMonsterDimensions(MONSTER_STR);
 	std::vector<std::string> monsterLines;
 	folly::split("\n", MONSTER_STR, monsterLines);
 
-	std::cout << std::endl;
 	int total = 0;
 	for (int i = 0; i < monsterDimensions.first; i++) {
 		bool foundMonster = true;
 		for (int j = 0; j < monsterDimensions.second; j++) {
 			char monsterChar = monsterLines.at(i).at(j);
 			char frameChar = frame.getFrame().at(row + i).at(col + j);
-			if (monsterChar == '#' && frameChar == '#') {
-				std::cout << 'O';
-			} else if (monsterChar == '#') {
-				std::cout << 'o';
-			} else {
-				std::cout << frameChar;
-			}
-
 			if (monsterChar == MONSTER_SIGNAL_CHAR && frameChar != MONSTER_SIGNAL_CHAR) {
 				foundMonster = false;
 				break;
@@ -583,64 +587,52 @@ int getNumMonsterChars(const CameraFrame &frame, int row, int col) {
 		}
 		// If this line didn't find a monster, there can't be any true monster chars
 		if (!foundMonster) {
-			std::cout << std::endl << 0 << std::endl;
 			return 0;
 		}
-		std::cout << std::endl;
 	}
-
-	std::cout << total << std::endl;
 
 	return total;
 }
 
-long part2(const std::vector<CameraFrame> &frames) {
-	int boardSize = calculateBoardSize(frames);
-	auto board = findLinedUpArrangement(frames);
+long part1(const std::map<std::pair<int, int>, CameraFrame> &board, int boardSize) {
+	return 1L * board.at(std::make_pair(0, 0)).getID() * board.at(std::make_pair(0, boardSize - 1)).getID() *
+		   board.at(std::make_pair(boardSize - 1, 0)).getID() *
+		   board.at(std::make_pair(boardSize - 1, boardSize - 1)).getID();
+}
+
+
+long part2(const std::map<std::pair<int, int>, CameraFrame> &rawBoard, int boardSize) {
+	// Remove all of the borders from the board
+	std::map<std::pair<int, int>, CameraFrame> board(rawBoard);
 	std::for_each(board.begin(), board.end(), [](std::pair<const std::pair<int, int>, CameraFrame> &frame) {
-		std::cout << frame.first.first << ", " << frame.first.second << " " << frame.second.getID() << std::endl;
+		frame.second.removeFrameBorder();
 	});
-	printBoard(board, boardSize, boardSize);
-	std::for_each(board.begin(), board.end(), [](std::pair<const std::pair<int, int>, CameraFrame> &frame) {
-		frame.second.removeBorder();
-	});
-	printBoard(board, boardSize, boardSize, -2);
 
 	std::pair<int, int> monsterDimensions = getMonsterDimensions(MONSTER_STR);
 	auto fullBoard = joinFullBoard(board, boardSize, boardSize);
 	auto fullBoardFrame = CameraFrame(0, fullBoard);
-	// TODO: This should not be hardcoded
-	std::for_each(fullBoardFrame.getFrame().cbegin(), fullBoardFrame.getFrame().cend(), [](const std::string &frame) {
-		std::cout << frame << std::endl;
-	});
-	std::cout << std::endl;
-
 	int totalSignalChars =
 		std::accumulate(fullBoard.cbegin(), fullBoard.cend(), 0, [](int total, const std::string &boardRow) {
 			return total + std::count(boardRow.cbegin(), boardRow.cend(), MONSTER_SIGNAL_CHAR);
 		});
-	std::cout << totalSignalChars << std::endl;
+
 	auto transforms = TransformGenerator(fullBoardFrame);
 	for (auto it = transforms.cbegin(); it != transforms.cend(); it++) {
 		auto transformedFrame = (*it)();
-		std::for_each(
-			transformedFrame.getFrame().cbegin(), transformedFrame.getFrame().cend(), [](const std::string &frame) {
-				std::cout << frame << std::endl;
-			});
 		int totalMonsterChars = 0;
 		for (int i = 0; i < fullBoard.size() - monsterDimensions.first; i++) {
 			for (int j = 0; j < fullBoard.at(0).size() - monsterDimensions.second; j++) {
 				int monsterChars = getNumMonsterChars(transformedFrame, i, j);
 				totalMonsterChars += monsterChars;
-				std::cout << std::endl << std::endl;
 			}
 		}
 
+		// Only one orientation will match a monster
 		if (totalMonsterChars > 0) {
-			std::cout << totalMonsterChars << std::endl;
 			return totalSignalChars - totalMonsterChars;
 		}
 	}
+
 	throw std::invalid_argument("No valid solution");
 }
 
@@ -652,8 +644,9 @@ int main(int argc, char *argv[]) {
 
 	auto input = readInput(argv[1]);
 	auto parsedInput = parseInput(input);
-	auto frame = parsedInput.at(0);
+	int boardSize = calculateBoardSize(parsedInput);
+	auto board = findLinedUpArrangement(parsedInput);
 
-	std::cout << part1(parsedInput) << std::endl;
-	std::cout << part2(parsedInput) << std::endl;
+	std::cout << part1(board, boardSize) << std::endl;
+	std::cout << part2(board, boardSize) << std::endl;
 }
