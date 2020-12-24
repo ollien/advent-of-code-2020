@@ -1,3 +1,5 @@
+#include <folly/String.h>
+
 #include <cmath>
 #include <fstream>
 #include <functional>
@@ -15,6 +17,11 @@ constexpr auto TILE_ID_PATTERN = R"(Tile (\d+):)";
 constexpr int NUM_CAMERA_LINES = 10;
 // Plus one for the ID line, plus one for the newline after
 constexpr int NUM_INPUT_BLOCK_LINES = NUM_CAMERA_LINES + 2;
+constexpr char MONSTER_SIGNAL_CHAR = '#';
+constexpr auto MONSTER_STR = 1 + R"(
+                  # 
+#    ##    ##    ###
+ #  #  #  #  #  #   )";
 
 /**
  * Represents a single frame captured by the camera
@@ -112,6 +119,7 @@ class CameraFrame {
 		// f g h i j
 		// k l m n o
 		// p q r s t
+		// u v w x y
 		// First we rotate the ring that starts with "a b c d e", then "g h i", and once we hit "m", there's nothing to
 		// rotate, so we're done.
 
@@ -144,9 +152,13 @@ class CameraFrame {
 			ringEndIndex--;
 		}
 
-		// Fill in the middle
-		auto middle = this->frame.size() / 2;
-		rotatedFrame.at(middle).at(middle) = frame.at(middle).at(middle);
+		// Copy over the middle
+		// Without this if, this overwrites legit rotated tiles when filling in the middle, if we have a board of an
+		// even number size
+		if (this->frame.size() % 2 != 0) {
+			auto middle = this->frame.size() / 2;
+			rotatedFrame.at(middle).at(middle) = frame.at(middle).at(middle);
+		}
 
 		this->frame = std::move(rotatedFrame);
 	}
@@ -165,6 +177,20 @@ class CameraFrame {
 	void rotateFrame270Deg() {
 		this->rotateFrame180Deg();
 		this->rotateFrame90Deg();
+	}
+
+	/**
+	 * Remove the border of this frame
+	 */
+	void removeBorder() {
+		std::vector<std::string> outFrame;
+		std::transform(
+			this->frame.cbegin() + 1,
+			this->frame.cend() - 1,
+			std::back_inserter(outFrame),
+			[](const std::string &frameRow) { return frameRow.substr(1, frameRow.size() - 2); });
+
+		this->frame = outFrame;
 	}
 
  private:
@@ -343,12 +369,12 @@ std::ostream &operator<<(std::ostream &os, const CameraFrame &frame) {
  * @param maxRow The maximum row in the board
  * @param maxCol The maximum column in the board
  */
-void printBoard(const std::map<std::pair<int, int>, CameraFrame> &board, int maxRow, int maxCol) {
+void printBoard(const std::map<std::pair<int, int>, CameraFrame> &board, int maxRow, int maxCol, int offset = 0) {
 	CameraFrame emptyFrame(0, std::vector<std::string>(NUM_CAMERA_LINES, std::string(NUM_CAMERA_LINES, ' ')));
 	for (int i = 0; i < maxRow; i++) {
 		std::vector<CameraFrame> rowFrames;
 		rowFrames.reserve(maxCol);
-		for (int frameRow = 0; frameRow < NUM_CAMERA_LINES; frameRow++) {
+		for (int frameRow = 0; frameRow < NUM_CAMERA_LINES + offset; frameRow++) {
 			for (int j = 0; j < maxCol; j++) {
 				auto frame = board.find(std::make_pair(i, j));
 				auto frameRowStr = (frame == board.end() ? emptyFrame : frame->second).getFrame().at(frameRow);
@@ -438,7 +464,6 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 					found = true;
 					board.emplace(std::make_pair(row, col), *matchingFrame);
 					availableFrames.erase(std::remove(availableFrames.begin(), availableFrames.end(), currentFrame));
-					// printBoard(board, maxRow, maxCol);
 					break;
 				}
 			}
@@ -455,8 +480,22 @@ std::optional<std::map<std::pair<int, int>, CameraFrame>> findLinedUpArrangement
 	return board;
 }
 
-long part1(const std::vector<CameraFrame> &frames) {
-	int boardSize = sqrt(frames.size());
+/**
+ * Determine the size of the board given the captured frames
+ * @param frames The frames to use on the board
+ * @return int The board size
+ */
+int calculateBoardSize(const std::vector<CameraFrame> &frames) {
+	return sqrt(frames.size());
+}
+
+/**
+ * Find a board that correctly lines everything up
+ * @param frames All of the frames
+ * @return std::optional<std::map<std::pair<int, int>, CameraFrame>> The board that solves part 1
+ */
+std::map<std::pair<int, int>, CameraFrame> findLinedUpArrangement(const std::vector<CameraFrame> &frames) {
+	int boardSize = calculateBoardSize(frames);
 	for (const CameraFrame &frame : frames) {
 		std::vector<CameraFrame> availableFrames(frames);
 		availableFrames.erase(std::remove(availableFrames.begin(), availableFrames.end(), frame));
@@ -467,14 +506,142 @@ long part1(const std::vector<CameraFrame> &frames) {
 			CameraFrame transformedFrame = transformation();
 			auto res = findLinedUpArrangement(transformedFrame, availableFrames, boardSize, boardSize);
 			if (res) {
-				return 1L * res->at(std::make_pair(0, 0)).getID() * res->at(std::make_pair(0, boardSize - 1)).getID() *
-					   res->at(std::make_pair(boardSize - 1, 0)).getID() *
-					   res->at(std::make_pair(boardSize - 1, boardSize - 1)).getID();
+				return *res;
 			}
 		}
 	}
 
 	throw std::invalid_argument("No solution for input");
+}
+
+long part1(const std::vector<CameraFrame> &frames) {
+	int boardSize = calculateBoardSize(frames);
+	auto board = findLinedUpArrangement(frames);
+	return 1L * board.at(std::make_pair(0, 0)).getID() * board.at(std::make_pair(0, boardSize - 1)).getID() *
+		   board.at(std::make_pair(boardSize - 1, 0)).getID() *
+		   board.at(std::make_pair(boardSize - 1, boardSize - 1)).getID();
+}
+
+std::pair<int, int> getMonsterDimensions(const std::string &monster) {
+	int height = std::count(monster.cbegin(), monster.cend(), '\n') + 1;
+	std::vector<std::string> lines;
+	folly::split("\n", monster, lines);
+	auto longestIt =
+		std::max_element(lines.cbegin(), lines.cend(), [](const std::string &line1, const std::string &line2) {
+			return line1.size() < line2.size();
+		});
+
+	int width = longestIt->size();
+
+	return std::make_pair(height, width);
+}
+
+std::vector<std::string> joinFullBoard(
+	const std::map<std::pair<int, int>, CameraFrame> &board, int maxRow, int maxCol) {
+	std::vector<std::string> outBoard;
+	for (int i = 0; i < maxRow; i++) {
+		for (int frameRow = 0; frameRow < NUM_CAMERA_LINES - 2; frameRow++) {
+			outBoard.push_back("");
+			std::string &outRow = outBoard.back();
+			for (int j = 0; j < maxCol; j++) {
+				const CameraFrame &frame = board.at(std::make_pair(i, j));
+				std::string frameRowItems = frame.getFrame().at(frameRow);
+				outRow += frameRowItems;
+			}
+		}
+	}
+
+	return outBoard;
+}
+
+int getNumMonsterChars(const CameraFrame &frame, int row, int col) {
+	std::pair<int, int> monsterDimensions = getMonsterDimensions(MONSTER_STR);
+	std::vector<std::string> monsterLines;
+	folly::split("\n", MONSTER_STR, monsterLines);
+
+	std::cout << std::endl;
+	int total = 0;
+	for (int i = 0; i < monsterDimensions.first; i++) {
+		bool foundMonster = true;
+		for (int j = 0; j < monsterDimensions.second; j++) {
+			char monsterChar = monsterLines.at(i).at(j);
+			char frameChar = frame.getFrame().at(row + i).at(col + j);
+			if (monsterChar == '#' && frameChar == '#') {
+				std::cout << 'O';
+			} else if (monsterChar == '#') {
+				std::cout << 'o';
+			} else {
+				std::cout << frameChar;
+			}
+
+			if (monsterChar == MONSTER_SIGNAL_CHAR && frameChar != MONSTER_SIGNAL_CHAR) {
+				foundMonster = false;
+				break;
+			}
+
+			total += (monsterChar == MONSTER_SIGNAL_CHAR);
+		}
+		// If this line didn't find a monster, there can't be any true monster chars
+		if (!foundMonster) {
+			std::cout << std::endl << 0 << std::endl;
+			return 0;
+		}
+		std::cout << std::endl;
+	}
+
+	std::cout << total << std::endl;
+
+	return total;
+}
+
+long part2(const std::vector<CameraFrame> &frames) {
+	int boardSize = calculateBoardSize(frames);
+	auto board = findLinedUpArrangement(frames);
+	std::for_each(board.begin(), board.end(), [](std::pair<const std::pair<int, int>, CameraFrame> &frame) {
+		std::cout << frame.first.first << ", " << frame.first.second << " " << frame.second.getID() << std::endl;
+	});
+	printBoard(board, boardSize, boardSize);
+	std::for_each(board.begin(), board.end(), [](std::pair<const std::pair<int, int>, CameraFrame> &frame) {
+		frame.second.removeBorder();
+	});
+	printBoard(board, boardSize, boardSize, -2);
+
+	std::pair<int, int> monsterDimensions = getMonsterDimensions(MONSTER_STR);
+	auto fullBoard = joinFullBoard(board, boardSize, boardSize);
+	auto fullBoardFrame = CameraFrame(0, fullBoard);
+	// TODO: This should not be hardcoded
+	std::for_each(fullBoardFrame.getFrame().cbegin(), fullBoardFrame.getFrame().cend(), [](const std::string &frame) {
+		std::cout << frame << std::endl;
+	});
+	std::cout << std::endl;
+
+	int totalSignalChars =
+		std::accumulate(fullBoard.cbegin(), fullBoard.cend(), 0, [](int total, const std::string &boardRow) {
+			return total + std::count(boardRow.cbegin(), boardRow.cend(), MONSTER_SIGNAL_CHAR);
+		});
+	std::cout << totalSignalChars << std::endl;
+	auto transforms = TransformGenerator(fullBoardFrame);
+	for (auto it = transforms.cbegin(); it != transforms.cend(); it++) {
+		auto transformedFrame = (*it)();
+		std::for_each(
+			transformedFrame.getFrame().cbegin(), transformedFrame.getFrame().cend(), [](const std::string &frame) {
+				std::cout << frame << std::endl;
+			});
+		int totalMonsterChars = 0;
+		for (int i = 0; i < fullBoard.size() - monsterDimensions.first; i++) {
+			for (int j = 0; j < fullBoard.at(0).size() - monsterDimensions.second; j++) {
+				int monsterChars = getNumMonsterChars(transformedFrame, i, j);
+				totalMonsterChars += monsterChars;
+				std::cout << std::endl << std::endl;
+			}
+		}
+
+		if (totalMonsterChars > 0) {
+			std::cout << totalMonsterChars << std::endl;
+			return totalSignalChars - totalMonsterChars;
+		}
+	}
+	throw std::invalid_argument("No valid solution");
 }
 
 int main(int argc, char *argv[]) {
@@ -485,5 +652,8 @@ int main(int argc, char *argv[]) {
 
 	auto input = readInput(argv[1]);
 	auto parsedInput = parseInput(input);
+	auto frame = parsedInput.at(0);
+
 	std::cout << part1(parsedInput) << std::endl;
+	std::cout << part2(parsedInput) << std::endl;
 }
