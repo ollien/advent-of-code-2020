@@ -125,7 +125,7 @@ class CameraFrame {
 		std::vector<std::string> rotatedFrame(this->frame.size(), std::string(this->frame.at(0).size(), ' '));
 		int ringStartIndex = 0;
 		int ringEndIndex = this->frame.size() - 1;
-		while (ringStartIndex < ringEndIndex) {
+		while (ringStartIndex <= ringEndIndex) {
 			// Top Edge -> Right Edge
 			for (int i = ringStartIndex; i <= ringEndIndex; i++) {
 				rotatedFrame.at(i).at(ringEndIndex) = frame.at(ringStartIndex).at(i);
@@ -148,14 +148,6 @@ class CameraFrame {
 
 			ringStartIndex++;
 			ringEndIndex--;
-		}
-
-		// Copy over the middle
-		// Without this if, this overwrites legit rotated tiles when filling in the middle, if we have a board of an
-		// even number size
-		if (this->frame.size() % 2 != 0) {
-			auto middle = this->frame.size() / 2;
-			rotatedFrame.at(middle).at(middle) = frame.at(middle).at(middle);
 		}
 
 		this->frame = std::move(rotatedFrame);
