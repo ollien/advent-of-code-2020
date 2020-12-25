@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+// Pair of ingredients and allergens
 using IngredientLineItem = std::pair<std::vector<std::string>, std::vector<std::string>>;
 auto constexpr INGREDIENT_PATTERN = R"((.*) \(contains (.*)\))";
 
@@ -24,6 +25,11 @@ std::vector<std::string> readInput(const std::string &filename) {
 	return input;
 }
 
+/**
+ * Split an input line into its components of both the foreign ingredient and the allergens
+ * @param inputLine The input line
+ * @return std::pair<std::string, std::string> The ingredients and allergens as a pair
+ */
 std::pair<std::string, std::string> splitInputLine(const std::string &inputLine) {
 	std::regex pattern(INGREDIENT_PATTERN);
 	std::smatch matches;
@@ -34,6 +40,11 @@ std::pair<std::string, std::string> splitInputLine(const std::string &inputLine)
 	return std::make_pair(matches[1].str(), matches[2].str());
 }
 
+/**
+ * Parse the puzzle input
+ * @param input The puzzle input
+ * @return std::vector<IngredientLineItem> The line items for the ingredients
+ */
 std::vector<IngredientLineItem> parseInput(const std::vector<std::string> &input) {
 	std::vector<IngredientLineItem> res;
 	std::transform(input.cbegin(), input.cend(), std::back_inserter(res), [](const std::string &inputLine) {
@@ -49,6 +60,11 @@ std::vector<IngredientLineItem> parseInput(const std::vector<std::string> &input
 	return res;
 }
 
+/**
+ * Correlate ingredients to their all
+ * @param input The parsed puzzle input
+ * @return std::map<std::string, std::set<std::string>> A map of allergens to their possible ingredients (not concrete)
+ */
 std::map<std::string, std::set<std::string>> correlateIngredients(const std::vector<IngredientLineItem> &input) {
 	std::map<std::string, std::set<std::string>> knownCorrelations;
 	std::vector<std::string> allIngredients;
@@ -74,6 +90,31 @@ std::map<std::string, std::set<std::string>> correlateIngredients(const std::vec
 	}
 
 	return knownCorrelations;
+}
+
+/**
+ * Given a map of the known allergen mappings, generate the canonical name
+ * @param mappedIngredients The mapped ingredients
+ * @return std::string The canonical name of the food
+ */
+std::string generateCanonicalName(const std::map<std::string, std::string> &mappedIngredients) {
+	std::vector<std::string> sortedAllergens;
+	std::transform(
+		mappedIngredients.cbegin(),
+		mappedIngredients.cend(),
+		std::back_inserter(sortedAllergens),
+		[](const auto &entry) { return entry.first; });
+
+	std::sort(sortedAllergens.begin(), sortedAllergens.end());
+
+	std::vector<std::string> finalNameComponents;
+	std::transform(
+		sortedAllergens.cbegin(),
+		sortedAllergens.cend(),
+		std::back_inserter(finalNameComponents),
+		[&mappedIngredients](const std::string &allergenName) { return mappedIngredients.at(allergenName); });
+
+	return folly::join(",", finalNameComponents);
 }
 
 int part1(const std::vector<IngredientLineItem> &input) {
@@ -131,6 +172,7 @@ std::string part2(const std::vector<IngredientLineItem> &input) {
 			correlationSet = knownCorrelations.at(*allergenName);
 		}
 		if (toVisit.empty() || (correlationSet->get().size() > lastSize && !toRevisit.empty())) {
+			// priority_queue does not provide a ranged insert - do this by hand.
 			std::for_each(toRevisit.begin(), toRevisit.end(), [&toVisit](const std::string set) { toVisit.push(set); });
 			toRevisit.clear();
 			continue;
@@ -159,23 +201,7 @@ std::string part2(const std::vector<IngredientLineItem> &input) {
 		}
 	}
 
-	std::vector<std::string> sortedAllergens;
-	std::transform(
-		mappedIngredients.cbegin(),
-		mappedIngredients.cend(),
-		std::back_inserter(sortedAllergens),
-		[](const auto &entry) { return entry.first; });
-
-	std::sort(sortedAllergens.begin(), sortedAllergens.end());
-
-	std::vector<std::string> finalNameComponents;
-	std::transform(
-		sortedAllergens.cbegin(),
-		sortedAllergens.cend(),
-		std::back_inserter(finalNameComponents),
-		[&mappedIngredients](const std::string &allergenName) { return mappedIngredients.at(allergenName); });
-
-	return folly::join(",", finalNameComponents);
+	return generateCanonicalName(mappedIngredients);
 }
 
 int main(int argc, char *argv[]) {
