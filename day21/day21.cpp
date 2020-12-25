@@ -4,6 +4,7 @@
 #include <functional>
 #include <iostream>
 #include <numeric>
+#include <queue>
 #include <regex>
 #include <set>
 #include <string>
@@ -102,6 +103,81 @@ int part1(const std::vector<IngredientLineItem> &input) {
 		});
 }
 
+std::string part2(const std::vector<IngredientLineItem> &input) {
+	auto knownCorrelations = correlateIngredients(input);
+	// Prioritize the sets we know about based on the size of the containers they point to
+	auto compareSizes = [&knownCorrelations](const std::string &allergen1, const std::string &allergen2) {
+		const auto &correlationSet1 = knownCorrelations.at(allergen1);
+		const auto &correlationSet2 = knownCorrelations.at(allergen2);
+		return correlationSet1.size() < correlationSet2.size();
+	};
+	std::priority_queue<std::string, std::vector<std::string>, decltype(compareSizes)> toVisit(compareSizes);
+	std::for_each(knownCorrelations.cbegin(), knownCorrelations.cend(), [&toVisit](const auto &entry) {
+		toVisit.push(entry.first);
+	});
+
+	// toRevisit is used so we don't continually go back to the same set that happens to be the same size over and over
+	// again
+	std::vector<std::string> toRevisit;
+	std::map<std::string, std::string> mappedIngredients;
+	std::set<std::string> usedIngredients;
+	int lastSize = 0;
+	while (!toVisit.empty() || !toRevisit.empty()) {
+		std::optional<std::string> allergenName;
+		std::optional<std::reference_wrapper<std::set<std::string>>> correlationSet;
+		// We can't get the allergen name if the visit set is empty
+		if (!toVisit.empty()) {
+			allergenName = toVisit.top();
+			correlationSet = knownCorrelations.at(*allergenName);
+		}
+		if (toVisit.empty() || (correlationSet->get().size() > lastSize && !toRevisit.empty())) {
+			std::for_each(toRevisit.begin(), toRevisit.end(), [&toVisit](const std::string set) { toVisit.push(set); });
+			toRevisit.clear();
+			continue;
+		}
+
+		// This pop is safe - we know that the set must have at least one element at this point
+		toVisit.pop();
+		lastSize = correlationSet->get().size();
+		std::set<std::string> ingredientSet;
+		std::set_difference(
+			correlationSet->get().cbegin(),
+			correlationSet->get().cend(),
+			usedIngredients.cbegin(),
+			usedIngredients.cend(),
+			std::inserter(ingredientSet, ingredientSet.end()));
+
+		// If there's only one element, we know what the allergen correlates to, so we're done
+		if (ingredientSet.size() == 1) {
+			std::string ingredientName = *ingredientSet.begin();
+			usedIngredients.insert(ingredientName);
+			mappedIngredients.emplace(*allergenName, ingredientName);
+		} else {
+			// If there's more than one, save the updated set, and move on
+			knownCorrelations[*allergenName] = ingredientSet;
+			toRevisit.push_back(*allergenName);
+		}
+	}
+
+	std::vector<std::string> sortedAllergens;
+	std::transform(
+		mappedIngredients.cbegin(),
+		mappedIngredients.cend(),
+		std::back_inserter(sortedAllergens),
+		[](const auto &entry) { return entry.first; });
+
+	std::sort(sortedAllergens.begin(), sortedAllergens.end());
+
+	std::vector<std::string> finalNameComponents;
+	std::transform(
+		sortedAllergens.cbegin(),
+		sortedAllergens.cend(),
+		std::back_inserter(finalNameComponents),
+		[&mappedIngredients](const std::string &allergenName) { return mappedIngredients.at(allergenName); });
+
+	return folly::join(",", finalNameComponents);
+}
+
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
 		std::cerr << argv[0] << " <input_file>" << std::endl;
@@ -112,4 +188,5 @@ int main(int argc, char *argv[]) {
 	auto parsedInput = parseInput(input);
 
 	std::cout << part1(parsedInput) << std::endl;
+	std::cout << part2(parsedInput) << std::endl;
 }
