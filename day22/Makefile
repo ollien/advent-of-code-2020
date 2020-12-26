@@ -1,7 +1,7 @@
 CC=g++
 BIN_NAME=day22
-CCFLAGS=-o $(BIN_NAME) -g -std=c++17
-LDFLAGS=-lfolly
+CCFLAGS=-o $(BIN_NAME) -O2 -std=c++17
+LDFLAGS=
 
 .PHONY: all, clean
 
