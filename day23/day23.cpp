@@ -1,16 +1,11 @@
 #include <boost/bimap.hpp>
-#include <boost/bimap/multiset_of.hpp>
-#include <boost/bimap/unordered_multiset_of.hpp>
 #include <boost/bimap/unordered_set_of.hpp>
 #include <boost/hana/any_of.hpp>
 #include <boost/hana/ext/std/tuple.hpp>
 #include <boost/hana/for_each.hpp>
-#include <chrono>
 #include <fstream>
 #include <functional>
 #include <iostream>
-#include <list>
-#include <memory>
 #include <numeric>
 #include <string>
 #include <tuple>
