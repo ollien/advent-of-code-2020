@@ -93,10 +93,10 @@ class CupGraph {
 
 	 private:
 		static constexpr int END = -1;
+		friend CupGraph;
+		const CupGraph &graph;
 		int n;
 		int stop;
-		const CupGraph &graph;
-		friend CupGraph;
 	};
 	/**
 	 * Construct a new CupGraph from the given range
@@ -272,7 +272,6 @@ std::vector<int> makeCupList(const std::string &inputLine) {
 std::tuple<int, int, int> getPickedUpCups(int currentCup, const CupGraph &graph) {
 	auto range = graph.cycleRange(currentCup);
 	auto it = range.first;
-	auto it2 = range.first;
 	// This may look stupid, but putting *(it++) into make_tuple will not be evaluated in a deterministic order!
 	int value1 = *(it++);
 	int value2 = *(it++);
@@ -305,7 +304,6 @@ bool tupleContainsItem(Tuple tuple, ValueType value) {
  */
 int findDestinationCup(int currentCup, const CupGraph &graph, int minCup, int maxCup) {
 	std::tuple<int, int, int> pickedUpCups = getPickedUpCups(currentCup, graph);
-	auto cupRange = graph.cycleRange(currentCup);
 
 	int destinationCup = currentCup;
 	do {
@@ -364,7 +362,7 @@ void runGame(int startingCup, CupGraph &graph, int numIterations) {
 
 		// Since we move three at a time, we only need to get the first picked up cup
 		int firstPickedUpCup = graph.getNext(currentCup);
-		graph.move3(graph.getNext(currentCup), destinationCup);
+		graph.move3(firstPickedUpCup, destinationCup);
 
 		currentCup = graph.getNext(currentCup);
 	}
