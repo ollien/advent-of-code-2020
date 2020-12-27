@@ -136,7 +136,7 @@ class CupGraph {
 	 * @param key The key to move
 	 * @param dest The destination to move to
 	 */
-	void move(int key, int dest, int numToMove) {
+	void moveNodes(int key, int dest, int numToMove) {
 		auto keyIt = this->neighbors.left.find(key);
 		auto destIt = this->neighbors.left.find(dest);
 		if (keyIt == this->neighbors.left.end() || destIt == this->neighbors.left.end()) {
@@ -295,12 +295,13 @@ std::pair<IterValue, IterValue> minmax(InputIterator begin, InputIterator end) {
 		end,
 		std::make_pair<std::optional<IterValue>, std::optional<IterValue>>(std::nullopt, std::nullopt),
 		[](const std::pair<std::optional<IterValue>, std::optional<IterValue>> &minmaxPair, IterValue value) {
-			if (!minmaxPair.first.has_value() && !minmaxPair.first.has_value()) {
+			auto &[currentMin, currentMax] = minmaxPair;
+			if (!currentMin.has_value() && !currentMax.has_value()) {
 				return std::make_pair(value, value);
 			}
 
 			// Even though there's an and, we know both items in the pair must have values at this point.
-			return std::make_pair(std::min(value, *minmaxPair.first), std::max(value, *minmaxPair.second));
+			return std::make_pair(std::min(value, *currentMin), std::max(value, *currentMax));
 		});
 
 	return std::make_pair(*res.first, *res.second);
@@ -323,7 +324,7 @@ void runGame(int startingCup, CupGraph &graph, int numIterations) {
 		int firstPickedUpCup = graph.getNext(currentCup);
 		using tupleType = typename std::result_of<decltype (&getPickedUpCups)(int, const CupGraph &)>::type;
 		constexpr auto numCupsToMove = std::tuple_size<tupleType>::value;
-		graph.move(firstPickedUpCup, destinationCup, numCupsToMove);
+		graph.moveNodes(firstPickedUpCup, destinationCup, numCupsToMove);
 
 		currentCup = graph.getNext(currentCup);
 	}
