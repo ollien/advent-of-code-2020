@@ -138,6 +138,9 @@ class CupGraph {
 
 	/**
 	 * Move the cup at key to be clockwise to dest
+	 *
+	 * **This is not used in the final solution, but is kept for posterity**
+	 *
 	 * @param key The cup to move
 	 * @param dest The cup that will be counterclockwise to key (i.e. key will be clockwise to dest)
 	 */
@@ -166,6 +169,53 @@ class CupGraph {
 		this->neighbors.left.insert({counterclockwiseFromKey, clockwiseFromKey});
 		// Stitching the key to have the same neighbor as the destination did
 		this->neighbors.left.insert({key, clockwiseFromDest});
+		// Stitch the destination to be adjacent to the key
+		this->neighbors.left.insert({dest, key});
+	}
+
+	/**
+	 * The same as move, but moves key, key's neighbor, and key's neighbor's neighbor, at once
+	 * @param key The key to move
+	 * @param dest The destination to move to
+	 */
+	void move3(int key, int dest) {
+		auto keyIt = this->neighbors.left.find(key);
+		auto destIt = this->neighbors.left.find(dest);
+		if (keyIt == this->neighbors.left.end() || destIt == this->neighbors.left.end()) {
+			throw std::out_of_range("Item not in map");
+		}
+
+		// Get the two elements after the key.
+		auto keyIt2 = this->neighbors.left.find(keyIt->second);
+		if (keyIt2 == this->neighbors.left.end()) {
+			throw "Invalid state: elements are not linked together";
+		}
+
+		auto keyIt3 = this->neighbors.left.find(keyIt2->second);
+		if (keyIt3 == this->neighbors.left.end()) {
+			throw "Invalid state: elements are not linked together";
+		}
+
+		auto counterclockwiseFromKeyIt = this->neighbors.right.find(key);
+		if (counterclockwiseFromKeyIt == this->neighbors.right.end()) {
+			throw std::invalid_argument("Key has no counterclockwise neighbor");
+		}
+
+		int key3 = keyIt3->first;
+		int clockwiseFromKey3 = keyIt3->second;
+		int clockwiseFromDest = destIt->second;
+		int counterclockwiseFromKey = counterclockwiseFromKeyIt->second;
+		// Unfortunately, using replace doesn't work because we expect that each side has exactly one of each element,
+		// so doing this shuffle is not possible with replace, without some serious edgecasing.
+		this->neighbors.right.erase(key);
+		this->neighbors.left.erase(key3);
+		// this->neighbors.left.erase(key);
+		this->neighbors.left.erase(dest);
+
+		// Stitch the counterclockwise neighbor to be the one clockwise to the final element in our range
+		this->neighbors.left.insert({counterclockwiseFromKey, clockwiseFromKey3});
+		// Stitching the final element of our range to have the same neighbor as the destination did
+		this->neighbors.left.insert({key3, clockwiseFromDest});
 		// Stitch the destination to be adjacent to the key
 		this->neighbors.left.insert({dest, key});
 	}
@@ -316,11 +366,10 @@ void runGame(int startingCup, CupGraph &graph, int numIterations) {
 	int currentCup = startingCup;
 	for (int i = 0; i < numIterations; i++) {
 		int destinationCup = findDestinationCup(currentCup, graph, cupMinMax.first, cupMinMax.second);
-		std::tuple<int, int, int> pickedUpCups = getPickedUpCups(currentCup, graph);
 
-		graph.move(std::get<0>(pickedUpCups), destinationCup);
-		graph.move(std::get<1>(pickedUpCups), std::get<0>(pickedUpCups));
-		graph.move(std::get<2>(pickedUpCups), std::get<1>(pickedUpCups));
+		// Since we move three at a time, we only need to get the first picked up cup
+		int firstPickedUpCup = graph.getNext(currentCup);
+		graph.move3(graph.getNext(currentCup), destinationCup);
 
 		currentCup = graph.getNext(currentCup);
 	}
