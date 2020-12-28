@@ -151,8 +151,6 @@ int part2(const std::vector<std::vector<Direction>> &input) {
 			}
 		}
 
-		next.clear();
-
 		for (auto &entry : flipped) {
 			auto neighbors = getNeighbors(entry.first);
 			int numFlippedNeighbors =
@@ -164,12 +162,11 @@ int part2(const std::vector<std::vector<Direction>> &input) {
 			bool nextState = entry.second;
 			if (entry.second && (numFlippedNeighbors == 0 || numFlippedNeighbors > 2)) {
 				nextState = false;
-				next.emplace(entry.first, false);
 			} else if (!entry.second && numFlippedNeighbors == 2) {
 				nextState = true;
 			}
 
-			next.emplace(entry.first, nextState);
+			next[entry.first] = nextState;
 		}
 
 		std::swap(flipped, next);
